@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/LocalPlayer.iml" filepath="$PROJECT_DIR$/LocalPlayer.iml" />
+      <module fileurl="file://$PROJECT_DIR$/VST-Common-extra/VST-Common-extra.iml" filepath="$PROJECT_DIR$/VST-Common-extra/VST-Common-extra.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/decodeActivity/decodeActivity.iml" filepath="$PROJECT_DIR$/decodeActivity/decodeActivity.iml" />
+      <module fileurl="file://$PROJECT_DIR$/extra-resmanager/extra-resmanager.iml" filepath="$PROJECT_DIR$/extra-resmanager/extra-resmanager.iml" />
+      <module fileurl="file://$PROJECT_DIR$/fileExplorer/fileExplorer.iml" filepath="$PROJECT_DIR$/fileExplorer/fileExplorer.iml" />
+      <module fileurl="file://$PROJECT_DIR$/playfile/playfile.iml" filepath="$PROJECT_DIR$/playfile/playfile.iml" />
+      <module fileurl="file://$PROJECT_DIR$/plugLoadDemo/plugLoadDemo.iml" filepath="$PROJECT_DIR$/plugLoadDemo/plugLoadDemo.iml" />
+      <module fileurl="file://$PROJECT_DIR$/vst-extra/vst-extra.iml" filepath="$PROJECT_DIR$/vst-extra/vst-extra.iml" />
+    </modules>
+  </component>
+</project>
+
