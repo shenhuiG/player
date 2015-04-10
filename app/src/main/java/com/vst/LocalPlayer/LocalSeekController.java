@@ -20,7 +20,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.vst.dev.common.util.ScreenParameter;
+import com.vst.LocalPlayer.model.MediaBaseModel;
 import com.vst.dev.common.util.Utils;
 
 import net.myvst.v2.extra.media.controller.IInverseControl;
@@ -34,6 +34,8 @@ public class LocalSeekController extends FrameLayout implements IInverseControl 
     public interface ControlCallback {
 
         public long getPosition();
+
+        public long getDuration();
 
         public void seekTo(int pos);
 
@@ -50,7 +52,7 @@ public class LocalSeekController extends FrameLayout implements IInverseControl 
     private TextView mTxtDuration;
     private FrameLayout mStateView;
     private String mControlId;
-    private MediaMeta mMediaMeta;
+    private MediaBaseModel mMediaMeta;
     public static final String SEEK_CONTROLLER = "seek";
     private ControlCallback mControl;
     private Context mContext;
@@ -78,7 +80,7 @@ public class LocalSeekController extends FrameLayout implements IInverseControl 
         initView();
     }
 
-    public void setMediaMeta(MediaMeta mediaMeta) {
+    public void setMediaMeta(MediaBaseModel mediaMeta) {
         mMediaMeta = mediaMeta;
         if (mMetaView != null) {
             if (mMetaView != null) {
@@ -93,7 +95,7 @@ public class LocalSeekController extends FrameLayout implements IInverseControl 
         mControl = control;
     }
 
-    private void updateMetaView(MediaMeta mediaMeta) {
+    private void updateMetaView(MediaBaseModel mediaMeta) {
         if (mMetaView != null) {
             mMetaView.removeAllViews();
             TextView title = new TextView(mContext);
@@ -180,8 +182,8 @@ public class LocalSeekController extends FrameLayout implements IInverseControl 
                 mDragging = true;
             } else {
                 if (mControl != null) {
-                    if (progress >= mMediaMeta.duration) {
-                        progress = (int) (mMediaMeta.duration - 1000);
+                    if (progress >= mControl.getDuration()) {
+                        progress = (int) (mControl.getDuration() - 1000);
                     }
                     mControl.seekTo(progress);
                     executePlay();
@@ -231,7 +233,7 @@ public class LocalSeekController extends FrameLayout implements IInverseControl 
     public void updateView() {
         if (mControl != null && mAttach) {
             if (mTxtDuration != null) {
-                mTxtDuration.setText(Utils.stringForTime(mMediaMeta.duration));
+                mTxtDuration.setText(Utils.stringForTime(mControl.getDuration()));
             }
             if (mSeekView != null) {
                 setProgress();
@@ -242,7 +244,7 @@ public class LocalSeekController extends FrameLayout implements IInverseControl 
     private void setProgress() {
         if (mControl != null && !mDragging) {
             long position = mControl.getPosition();
-            long duration = mMediaMeta.duration;
+            long duration = mControl.getDuration();
             Log.d(LocalSeekController.class.getSimpleName(), "position=" + position + ",duration=" + duration);
             if (mSeekView != null) {
                 mSeekView.setMax((int) duration);
@@ -315,8 +317,8 @@ public class LocalSeekController extends FrameLayout implements IInverseControl 
     private void showSeekBarView(boolean increase) {
         if (seekBView == null) {
             seekBView = new ImageView(mContext);
-            seekBView.setLayoutParams(new LayoutParams(ScreenParameter.getFitSize(mContext, 144),
-                    ScreenParameter.getFitHeight(mContext, 145), Gravity.CENTER));
+            seekBView.setLayoutParams(new LayoutParams(Utils.getFitSize(mContext, 144),
+                    Utils.getFitSize(mContext, 145), Gravity.CENTER));
         }
         if (increase) {
             seekBView.setImageResource(R.drawable.ic_seekforward);
@@ -359,7 +361,7 @@ public class LocalSeekController extends FrameLayout implements IInverseControl 
                 } else if (keyCode == KeyEvent.KEYCODE_MEDIA_NEXT) {
                     if (mControl != null) {
                         long p = mControl.getPosition();
-                        long duration = mMediaMeta.duration;
+                        long duration = mControl.getDuration();
                         if (p > 0 && p < duration - 15000) {
                             mControl.seekTo((int) p + 15000);
                         }

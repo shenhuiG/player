@@ -4,9 +4,6 @@ import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
-/**
- * Created by shenh on 2015/3/26.
- */
 public class MediaStoreDBHelper extends SQLiteOpenHelper {
 
     private static MediaStoreDBHelper mInstance;
@@ -26,6 +23,8 @@ public class MediaStoreDBHelper extends SQLiteOpenHelper {
     public void onCreate(SQLiteDatabase db) {
         db.execSQL(CREATE_DEVICE_TABLE_V1);
         db.execSQL(CREATE_MEDIA_BASE_TABLE_V1);
+        db.execSQL(CREATE_MEDIA_INFO_TABLE_V1);
+        db.execSQL(CREATE_MEDIA_RECORD_TABLE_V1);
     }
 
     @Override
@@ -51,13 +50,25 @@ public class MediaStoreDBHelper extends SQLiteOpenHelper {
             + "("
             + MediaStore.MediaBase._ID + " integer primary key autoincrement not null,"
             + MediaStore.MediaBase.FIELD_NAME + " text not null,"
-            + MediaStore.MediaBase.FIELD_DISPLAY_NAME + " text,"
             + MediaStore.MediaBase.FIELD_FILE_SIZE + " long not null,"
             + MediaStore.MediaBase.FIELD_DEVICE_ID + " long not null,"
-            + MediaStore.MediaBase.FIELD_TYPE + " text,"
+            + MediaStore.MediaBase.FIELD_WIDTH + " integer not null,"
+            + MediaStore.MediaBase.FIELD_HEIGHT + " integer not null,"
+            + MediaStore.MediaBase.FIELD_META_TITLE + " text ,"
+            + MediaStore.MediaBase.FIELD_MEDIA_INFO_SOURCEID + " text ,"
             + MediaStore.MediaBase.FIELD_VALID + " boolean not null,"
             + MediaStore.MediaBase.FIELD_RELATIVE_PATH + " text not null,"
-            + MediaStore.MediaBase.FIELD_ADD_DATE + " long not null"
+            + MediaStore.MediaBase.FIELD_DATE + " long not null"
+            + ")";
+
+    static final String CREATE_MEDIA_RECORD_TABLE_V1 = "CREATE TABLE "
+            + MediaStore.MediaRecord.TABLE_NAME
+            + "("
+            + MediaStore.MediaRecord._ID + " integer primary key autoincrement not null,"
+            + MediaStore.MediaRecord.FIELD_MEDIA_ID + " long not null,"
+            + MediaStore.MediaRecord.FIELD_POSITION + " long not null,"
+            + MediaStore.MediaRecord.FIELD_DURATION + " long not null,"
+            + MediaStore.MediaRecord.FIELD_DATE + " long not null"
             + ")";
 
 
@@ -65,15 +76,18 @@ public class MediaStoreDBHelper extends SQLiteOpenHelper {
             + MediaStore.MediaInfo.TABLE_NAME
             + "("
             + MediaStore.MediaInfo._ID + " integer primary key autoincrement not null, "
-            + MediaStore.MediaInfo.FIELD_RELEASE_NAME + " text ,"
-            + MediaStore.MediaInfo.FIELD_RELEASE_DATE + " long ,"
-            + MediaStore.MediaInfo.FIELD_ORIGINAL_TITLE + " text ,"
-            + MediaStore.MediaInfo.FIELD_THEATRE_DATE + " long ,"
+            + MediaStore.MediaInfo.FIELD_TITLE + " text ,"
+            + MediaStore.MediaInfo.FIELD_YEAR + " text ,"
+            + MediaStore.MediaInfo.FIELD_DIRECTOR + " text ,"
+            + MediaStore.MediaInfo.FIELD_WRITER + " text ,"
+            + MediaStore.MediaInfo.FIELD_ACTORS + " text ,"
+            + MediaStore.MediaInfo.FIELD_PLOT + " text ,"
             + MediaStore.MediaInfo.FIELD_GENRE + " text ,"
-            + MediaStore.MediaInfo.FIELD_SOURCE + " text ,"
-            + MediaStore.MediaInfo.FIELD_FORMAT + " text ,"
-            + MediaStore.MediaInfo.FIELD_VIDEO_BITRATE + " text ,"
-            + MediaStore.MediaInfo.FIELD_FRAME_RATE + " text ,"
-            + MediaStore.MediaInfo.FIELD_RESOLUTION + " text "
+            + MediaStore.MediaInfo.FIELD_LANGUAGE + " text ,"
+            + MediaStore.MediaInfo.FIELD_TYPE + " text ,"
+            + MediaStore.MediaInfo.FIELD_COUNTRY + " text ,"
+            + MediaStore.MediaInfo.FIELD_POSTER + " text ,"
+            + MediaStore.MediaInfo.FIELD_SOURCE_ID + " text ,"
+            + MediaStore.MediaInfo.FIELD_SOURCE + " text"
             + ")";
 }

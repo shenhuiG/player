@@ -30,11 +30,8 @@ public class MountedReceiver extends BroadcastReceiver {
             boolean isNewDevice = true;
             ContentResolver cr = context.getContentResolver();
             if ((uuid = Utils.readDeviceUUID(path)) != null) {
-                System.out.println("uuid=" + uuid);
                 isNewDevice = !MediaStoreHelper.deviceInStore(cr, uuid);
-                System.out.println("isNewDevice=" + isNewDevice);
             }
-            isNewDevice = true;
             if (isNewDevice) {
                 //new device
                 //Scanner

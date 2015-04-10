@@ -2,7 +2,6 @@ package com.vst.LocalPlayer;
 
 
 import android.content.Context;
-import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
 import java.io.BufferedReader;
@@ -14,8 +13,6 @@ public class LuaUtils {
 
     public static String getRawString(Context ctx, int rawId) {
         WebView w ;
-        JavascriptInterface js;
-
 
         BufferedReader reader = null;
         try {

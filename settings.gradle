@@ -1,5 +1,2 @@
-include ':app',':extra-resmanager',':vst-extra',':VST-Common-extra'
-include ':fileExplorer'
-include ':plugLoadDemo'
-include ':decodeActivity'
-include ':playfile'
+include ':app',':extra-resmanager', ':ZI-master'
+

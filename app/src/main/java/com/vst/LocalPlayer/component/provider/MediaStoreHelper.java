@@ -5,9 +5,10 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.StatFs;
-import android.util.Log;
 
 import com.vst.LocalPlayer.Utils;
+
+import org.json.JSONObject;
 
 import java.io.File;
 
@@ -35,7 +36,6 @@ public class MediaStoreHelper {
         }
         if (selectionArgs != null) {
             int i = cr.update(MediaStore.MediaDevice.CONTENT_URI, values, where, selectionArgs);
-            Log.d(TAG, "updateMediaDeviceValid  i=" + i);
         }
     }
 
@@ -48,9 +48,7 @@ public class MediaStoreHelper {
         boolean inStore = false;
         Cursor c = cr.query(MediaStore.MediaDevice.CONTENT_URI, null, MediaStore.MediaDevice.FIELD_DEVICE_UUID + "=?",
                 new String[]{uuid}, null);
-        System.out.println("Cursor=" + c);
         if (c != null) {
-            System.out.println("Cursor=" + c.getCount());
             if (c.getCount() > 0) {
                 inStore = true;
             }
@@ -68,12 +66,51 @@ public class MediaStoreHelper {
         values.put(MediaStore.MediaDevice.FIELD_FS_SIZE, calculatSFSize(path));
         values.put(MediaStore.MediaDevice.FIELD_VALID, 1);
         Uri uri = cr.insert(MediaStore.MediaDevice.CONTENT_URI, values);
-        Log.d(TAG, "addNewMediaDevice  uri=" + uri);
         return uri;
     }
 
+    public static Uri insertMediaInfo(ContentResolver cr, String json, String sourceID) {
+        try {
+            JSONObject root = new JSONObject(json);
+            String Response = root.getString("Response");
+            if ("True".equals(Response)) {
+                String title = root.getString("Title");
+                String year = root.getString("Year");
+                String director = root.getString("Director");
+                String writer = root.getString("Writer");
+                String actors = root.getString("Actors");
+                String genre = root.getString("Genre");
+                String plot = root.getString("Plot");
+                String language = root.getString("Language");
+                String country = root.getString("Country");
+                String type = root.getString("Type");
+                String poster = root.getString("Poster");
+                String sourceId = root.getString("imdbID");
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaInfo.FIELD_SOURCE, "imdb");
+                values.put(MediaStore.MediaInfo.FIELD_SOURCE_ID, sourceId);
+                values.put(MediaStore.MediaInfo.FIELD_TITLE, title);
+                values.put(MediaStore.MediaInfo.FIELD_YEAR, year);
+                values.put(MediaStore.MediaInfo.FIELD_DIRECTOR, director);
+                values.put(MediaStore.MediaInfo.FIELD_WRITER, writer);
+                values.put(MediaStore.MediaInfo.FIELD_ACTORS, actors);
+                values.put(MediaStore.MediaInfo.FIELD_GENRE, genre);
+                values.put(MediaStore.MediaInfo.FIELD_PLOT, "N/A".equals(plot) ? null : plot);
+                values.put(MediaStore.MediaInfo.FIELD_POSTER, "N/A".equals(poster) ? null : poster);
+                values.put(MediaStore.MediaInfo.FIELD_TYPE, type);
+                values.put(MediaStore.MediaInfo.FIELD_LANGUAGE, language);
+                values.put(MediaStore.MediaInfo.FIELD_COUNTRY, country);
+                return cr.insert(MediaStore.MediaInfo.CONTENT_URI, values);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
 
-    public static Uri addNewMediaBase(ContentResolver cr, String mediaPath, String devicePath, long deviceId) {
+
+    public static Uri addNewMediaBase(ContentResolver cr, String mediaPath, String devicePath, long deviceId
+            , int width, int height, String metaTitle) {
         Uri uri = null;
         File mediaFile = new File(mediaPath);
         if (mediaFile.exists() && mediaFile.isFile()) {
@@ -82,30 +119,18 @@ public class MediaStoreHelper {
             values.put(MediaStore.MediaBase.FIELD_FILE_SIZE, mediaFile.getTotalSpace());
             values.put(MediaStore.MediaBase.FIELD_RELATIVE_PATH, mediaPath.replace(devicePath, ""));
             values.put(MediaStore.MediaBase.FIELD_DEVICE_ID, deviceId);
-            values.put(MediaStore.MediaBase.FIELD_ADD_DATE, System.currentTimeMillis());
+            values.put(MediaStore.MediaBase.FIELD_WIDTH, width);
+            values.put(MediaStore.MediaBase.FIELD_HEIGHT, height);
+            values.put(MediaStore.MediaBase.FIELD_META_TITLE, metaTitle);
+            values.put(MediaStore.MediaBase.FIELD_DATE, System.currentTimeMillis());
             values.put(MediaStore.MediaBase.FIELD_VALID, 1);
             uri = cr.insert(MediaStore.MediaBase.CONTENT_URI, values);
         }
-        Log.d(TAG, "addNewMediaBase  uri=" + uri);
         return uri;
     }
-
-    public static Uri removeMediaDevice(ContentResolver cr, String uuid, String path) {
-        ContentValues values = new ContentValues();
-        values.put(MediaStore.MediaDevice.FIELD_DEVICE_UUID, uuid);
-        values.put(MediaStore.MediaDevice.FIELD_DEVICE_PATH, path);
-        values.put(MediaStore.MediaDevice.FIELD_LAST_MODIFY_TIME, Utils.getDeviceLaseTime(path));
-        values.put(MediaStore.MediaDevice.FIELD_FS_SIZE, calculatSFSize(path));
-        values.put(MediaStore.MediaDevice.FIELD_VALID, 1);
-        Uri uri = cr.insert(MediaStore.MediaDevice.CONTENT_URI, values);
-        Log.d(TAG, "addNewMediaDevice  uri=" + uri);
-        return uri;
-    }
-
 
     public static boolean checkDeviceValid(String path, String uuid) {
         String deviceUUID = Utils.readDeviceUUID(path);
-        Log.d(TAG, "checkDeviceValid  deviceUUID=" + deviceUUID);
         return uuid.equals(deviceUUID);
     }
 
@@ -117,7 +142,6 @@ public class MediaStoreHelper {
         String where = MediaStore.MediaBase.FIELD_DEVICE_ID + "=?";
         String[] selectionArgs = new String[]{Long.toString(deviceId)};
         count = cr.update(MediaStore.MediaBase.CONTENT_URI, values, where, selectionArgs);
-        Log.d(TAG, "updateMediaValidByDevice  count=" + count);
         return count;
     }
 

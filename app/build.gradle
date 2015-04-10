@@ -1,13 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 18
+    compileSdkVersion 16
     buildToolsVersion "20.0.0"
 
     defaultConfig {
         applicationId "vst.com.localplayer"
         minSdkVersion 16
-        targetSdkVersion 18
+        targetSdkVersion 16
         versionCode 1
         versionName "1.0"
     }
@@ -27,6 +27,6 @@ android {
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
-    compile project(':vst-extra')
-    compile 'com.android.support:support-annotations:20.0.0'
+    compile project(':extra-resmanager')
+    compile project(':ZI-master')
 }

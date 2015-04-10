@@ -1,7 +1,9 @@
 package com.vst.LocalPlayer.component.activity;
 
 import android.app.Activity;
+import android.content.ContentValues;
 import android.content.Context;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -9,17 +11,15 @@ import android.os.Message;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
-import com.vst.LocalPlayer.FileExplorer.LocalMenuView;
+import com.vst.LocalPlayer.LocalMenuView;
 import com.vst.LocalPlayer.LocalSeekController;
-import com.vst.LocalPlayer.MediaMeta;
-import com.vst.LocalPlayer.Utils;
+import com.vst.LocalPlayer.component.provider.MediaStore;
+import com.vst.LocalPlayer.model.IMDBApi;
+import com.vst.LocalPlayer.model.MediaBaseModel;
 import com.vst.dev.common.media.IPlayer;
 
-import net.myvst.v2.extra.R;
 import net.myvst.v2.extra.media.MediaControlFragment;
 import net.myvst.v2.extra.media.controller.MediaControllerManager;
-
-import java.util.HashMap;
 
 public class PlayFragment extends MediaControlFragment implements IPlayer.OnCompletionListener,
         IPlayer.OnErrorListener, IPlayer.OnPreparedListener, MediaControllerManager.KeyEventHandler,
@@ -31,7 +31,7 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     private int mScaleSize = IPlayer.SURFACE_BEST_FIT;
     private int mDecodeType = IPlayer.HARD_DECODE;
     private String mMediaPath = null;
-    private HashMap<String, String> mHeader = null;
+    private long mediaId = -1;
     private Handler mHandler;
     private LocalSeekController mSeekController;
     private int mCycleMode = 0;
@@ -46,8 +46,10 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
 
     private boolean init(Bundle args) {
         String mediaUri;
-        if (args != null && (mediaUri = args.getString("pushUrl")) != null) {
+        if (args != null && (mediaUri = args.getString("uri")) != null) {
             if (!mediaUri.equals(mMediaPath)) {
+                mediaId = args.getLong("_id", -1);
+                mSeekWhenPrepared = getPositionFromRecord(mediaId);
                 mPlayer.resetVideo();
                 if (Uri.parse(mediaUri).getScheme().equalsIgnoreCase("file")) {
                     mHandler.sendMessage(mHandler.obtainMessage(FINAL_PLAY, mediaUri));
@@ -57,6 +59,39 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
         }
         return false;
     }
+
+
+    private int getPositionFromRecord(long mediaID) {
+        if (mediaID >= 0) {
+            System.out.println(mediaID);
+            Cursor c = mContext.getContentResolver().query(MediaStore.MediaRecord.CONTENT_URI, null,
+                    MediaStore.MediaRecord.FIELD_MEDIA_ID + "=?", new String[]{mediaID + ""}, null, null);
+            if (c.getCount() > 0) {
+                c.moveToFirst();
+                return c.getInt(c.getColumnIndex(MediaStore.MediaRecord.FIELD_POSITION));
+            }
+            c.close();
+        }
+        return 0;
+    }
+
+
+    private MediaBaseModel queryMediaBase(long mediaId) {
+        MediaBaseModel model = new MediaBaseModel();
+        if (mediaId < 0) {
+            model.name = IMDBApi.smartMediaName(mMediaPath);
+        } else {
+            Cursor c = mContext.getContentResolver().query(MediaStore.getContentUri(
+                    MediaStore.MediaBase.TABLE_NAME, mediaId), null, null, null, null);
+            if (c.moveToFirst()) {
+                model.name = c.getString(c.getColumnIndex(MediaStore.MediaBase.FIELD_NAME));
+                model.metaTitle = c.getString(c.getColumnIndex(MediaStore.MediaBase.FIELD_META_TITLE));
+            }
+            c.close();
+        }
+        return model;
+    }
+
 
     @Override
     public void onAttach(Activity activity) {
@@ -75,6 +110,33 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
         }
     }
 
+    @Override
+    public void onPause() {
+        insertRecord(mediaId, mPlayer.getPosition(), mPlayer.getDuration());
+        super.onPause();
+    }
+
+
+    private void insertRecord(long mediaId, long position, long duration) {
+        if (mediaId >= 0) {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.MediaRecord.FIELD_POSITION, position);
+            values.put(MediaStore.MediaRecord.FIELD_DURATION, duration);
+            values.put(MediaStore.MediaRecord.FIELD_DATE, System.currentTimeMillis());
+            //first update
+            int count = mContext.getContentResolver().update(MediaStore.MediaRecord.CONTENT_URI, values,
+                    MediaStore.MediaRecord.FIELD_MEDIA_ID + "=?", new String[]{mediaId + ""});
+            if (count <= 0) {
+                //update failure
+                values.put(MediaStore.MediaRecord.FIELD_MEDIA_ID, mediaId);
+                values.put(MediaStore.MediaRecord.FIELD_DATE, System.currentTimeMillis());
+                Uri uri = mContext.getContentResolver().insert(MediaStore.MediaRecord.CONTENT_URI, values);
+                System.out.println("insert success uri=" + uri);
+            } else {
+                System.out.println("update success");
+            }
+        }
+    }
 
     private void initController() {
         if (mControllerManager != null) {
@@ -115,9 +177,8 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
                 case FINAL_PLAY:
                     mMediaPath = (String) msg.obj;
                     System.out.println(mMediaPath);
-                    MediaMeta meta = Utils.readMediaMeta(mMediaPath);
                     if (mSeekController != null) {
-                        mSeekController.setMediaMeta(meta);
+                        mSeekController.setMediaMeta(queryMediaBase(mediaId));
                     }
                     if (mPlayer != null && mMediaPath != null) {
                         mPlayer.setDecodeType(mDecodeType);
@@ -136,6 +197,7 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
         }
     };
 
+    @Override
     public long getDuration() {
         if (mPlayer != null) {
             return mPlayer.getDuration();
@@ -170,13 +232,14 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     public void onPrepared(IPlayer mp) {
         mPlayer.changeScale(mScaleSize);
         mPlayer.start();
+        System.out.println(mPlayer.getDuration() + "~~~~~~~");
     }
 
     @Override
     public boolean onError(IPlayer mp, int what, int extra) {
         if (what == IPlayer.VLC_INIT_ERROR) {
         } else {
-            handleError(getResources().getString(R.string.play_error_txt));
+            handleError("error");
         }
         return true;
     }

@@ -24,10 +24,11 @@
     <string name="category_other">其它</string>
     <string name="category_favorite">收藏夹</string>
 
-<!-- TODO: Remove or change this placeholder text -->
+    <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
 
     <string name="title_activity_play">PlayActivity</string>
     <string name="dummy_button">Dummy Button</string>
     <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="deviceEmpty">设备已移除或不存在</string>
 </resources>

@@ -21,6 +21,10 @@ public final class MediaStore {
         return Uri.parse(CONTENT_AUTHORITY_SLASH + tableName + "/" + rowId);
     }
 
+    public static final Uri getContentUri(String tableName, String key) {
+        return Uri.parse(CONTENT_AUTHORITY_SLASH + tableName + "/" + key);
+    }
+
     public interface MediaDevice extends BaseColumns {
         public static final String TABLE_NAME = "MediaDevice";
         public static final String FIELD_DEVICE_UUID = "UUID";
@@ -35,41 +39,44 @@ public final class MediaStore {
     public interface MediaBase extends BaseColumns {
         public static final String TABLE_NAME = "MediaBase";
         public static final String FIELD_NAME = "name";
-        public static final String FIELD_DISPLAY_NAME = "displayName";
+        public static final String FIELD_META_TITLE = "metaTitle";
         public static final String FIELD_RELATIVE_PATH = "relativePath";
-        public static final String FIELD_TYPE = "type";
         public static final String FIELD_FILE_SIZE = "fileSize";
         public static final String FIELD_DEVICE_ID = "deviceId";
         public static final String FIELD_VALID = "valid";
-        public static final String FIELD_ADD_DATE = "addDate";
-        public static final String FIELD_MEDIA_INFO_ID = "mediaInfoId";
+        public static final String FIELD_DATE = "date";
+        public static final String FIELD_WIDTH = "width";
+        public static final String FIELD_HEIGHT = "height";
+        public static final String FIELD_MEDIA_INFO_SOURCEID = "mediaInfoSourceId";
         public static final Uri CONTENT_URI = getContentUri(TABLE_NAME);
     }
 
 
     public interface MediaInfo extends BaseColumns {
         public static final String TABLE_NAME = "MediaInfo";
-        public static final String FIELD_RELEASE_NAME = "releaseName";          //发行名称
-        public static final String FIELD_ORIGINAL_TITLE = "originalTitle";
-        public static final String FIELD_RELEASE_DATE = "ReleaseDATE";       //影片文件制作并上传的日期
-        public static final String FIELD_THEATRE_DATE = "theatreDATE";      //影片公映日期
-        public static final String FIELD_GENRE = "genre";                   //影片类型：冒险，家庭，奇幻
-        public static final String FIELD_SOURCE = "source";                 // 发布源
-        public static final String FIELD_FORMAT = "format";                 //文件格式 mkv ,mp4
-        public static final String FIELD_VIDEO_BITRATE = "videoBitrate";    //视频码率
-        public static final String FIELD_FRAME_RATE = "frameRate";          //帧率
-        public static final String FIELD_RESOLUTION = "resolution";         //分辨率
+        public static final String FIELD_TITLE = "title";           //media  Name
+        public static final String FIELD_YEAR = "year";
+        public static final String FIELD_DIRECTOR = "director";
+        public static final String FIELD_WRITER = "writer";
+        public static final String FIELD_ACTORS = "actors";
+        public static final String FIELD_GENRE = "genre";
+        public static final String FIELD_PLOT = "plot";
+        public static final String FIELD_LANGUAGE = "language";
+        public static final String FIELD_COUNTRY = "country";
+        public static final String FIELD_TYPE = "type";
+        public static final String FIELD_POSTER = "poster";
+        public static final String FIELD_SOURCE_ID = "sourceId";    // tt1233 ,12345,
+        public static final String FIELD_SOURCE = "source";          //imdb,douban,nfo
         public static final Uri CONTENT_URI = getContentUri(TABLE_NAME);
     }
 
-
-    public interface MediaExtraInfo extends BaseColumns {
-        public static final String TABLE_NAME = "MediaExtraInfo";
-    }
-
-
     public interface MediaRecord extends BaseColumns {
-        public static final String TABLE_NAME = "mediaExtra";
+        public static final String TABLE_NAME = "MediaRecord";
+        public static final String FIELD_MEDIA_ID = "mediaId";
+        public static final String FIELD_POSITION = "position";
+        public static final String FIELD_DURATION = "duration";
+        public static final String FIELD_DATE = "date";
+        public static final Uri CONTENT_URI = getContentUri(TABLE_NAME);
     }
 
 

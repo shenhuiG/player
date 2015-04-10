@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.vst.autofitviews.TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/basiccom.vst.autofitviews.TextView"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_dialog"
+    android:gravity="center"
+    android:lineSpacingExtra="10px"
+    android:paddingBottom="35px"
+    android:paddingLeft="40px"
+    android:paddingRight="40px"
+    android:paddingTop="40px"
+    android:text="默认白色细体"
+    android:textColor="#ffffff"
+    android:textSize="28px" />

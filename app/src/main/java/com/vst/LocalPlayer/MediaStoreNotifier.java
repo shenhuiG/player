@@ -20,7 +20,6 @@ public class MediaStoreNotifier {
     private ContentResolver mCR = null;
     private CallBack mCallback = null;
     private static final Handler mHandler = new Handler(Looper.getMainLooper());
-    private static final int MEDIA_QUERY_TOKEN = 0;
     private ArrayList<QueryArg> mArgs = new ArrayList<QueryArg>();
     private static final long DELAY = 500;
 
@@ -35,9 +34,7 @@ public class MediaStoreNotifier {
             protected void onQueryComplete(int token, Object cookie, Cursor cursor) {
                 super.onQueryComplete(token, cookie, cursor);
                 if (!mArgs.isEmpty() && token < mArgs.size()) {
-                    System.out.println("token=" + token);
                     QueryArg arg = mArgs.get(token);
-                    System.out.println(arg.uri);
                     if (mCallback != null) {
                         mCallback.QueryNotify(arg.uri, cursor);
                     }
@@ -69,7 +66,6 @@ public class MediaStoreNotifier {
             @Override
             public void onChange(boolean selfChange, Uri uri) {
                 super.onChange(selfChange, uri);
-                System.out.println(uri);
                 mHandler.removeCallbacks(arg.runnable);
                 mHandler.postDelayed(arg.runnable, DELAY);
             }

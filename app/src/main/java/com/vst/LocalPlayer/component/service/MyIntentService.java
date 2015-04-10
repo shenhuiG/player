@@ -3,13 +3,18 @@ package com.vst.LocalPlayer.component.service;
 import android.app.IntentService;
 import android.content.ContentResolver;
 import android.content.ContentUris;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
+import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.util.Log;
 
+import com.vst.LocalPlayer.model.IMDBApi;
+import com.vst.LocalPlayer.model.NFOApi;
 import com.vst.LocalPlayer.Utils;
+import com.vst.LocalPlayer.component.provider.MediaStore;
 import com.vst.LocalPlayer.component.provider.MediaStoreHelper;
 
 import java.io.File;
@@ -20,9 +25,14 @@ public class MyIntentService extends IntentService {
     private static final String ACTION_SCANNER_DEVICE_ID = "deviceId";
     private static final String ACTION_SCANNER_DEVICE_PATH = "devicePath";
     private static final String ACTION_UPDATE_VALID = "com.vst.LocalPlayer.component.service.action.UpdateDeviceAndMediaValid";
-    private static final String ACTION_ENTRY_NFO = "com.vst.LocalPlayer.component.service.action.EntryNfo";
-    private static final String ACTION_ENTRY_NFO_NFOFILE = "nfoFile";
-    private static final String ACTION_ENTRY_NFO_MEDIA_ID = "mediaId";
+    private static final String ACTION_ENTRY_INFO = "com.vst.LocalPlayer.component.service.action.EntryNfo";
+    private static final String ACTION_ENTRY_INFO_PATH = "path";
+    private static final String ACTION_ENTRY_INFO_META_TITLE = "metaTitle";
+    private static final String ACTION_ENTRY_INFO_MEDIA_ID = "mediaId";
+    private static final String ACTION_ADD_MEDIA = "com.vst.LocalPlayer.component.service.action.AddMedia";
+    private static final String ACTION_ADD_MEDIA_DEVICE_ID = "deviceId";
+    private static final String ACTION_ADD_MEDIA_DEVICE_PATH = "devicePath";
+    private static final String ACTION_ADD_MEDIA_MEDIA_PATH = "mediaPath";
 
     public static void startActionScanner(Context context, String devicePath, long deviceId) {
         Intent intent = new Intent(context, MyIntentService.class);
@@ -40,14 +50,24 @@ public class MyIntentService extends IntentService {
     }
 
 
-    public static void startActionEntryNFO(Context context, File nfoFile, long mediaId) {
+    public static void startActionEntryInfo(Context context, String path, String metaTitle, long mediaId) {
         Intent intent = new Intent(context, MyIntentService.class);
-        intent.setAction(ACTION_ENTRY_NFO);
-        intent.putExtra(ACTION_ENTRY_NFO_MEDIA_ID, mediaId);
-        intent.putExtra(ACTION_ENTRY_NFO_NFOFILE, nfoFile);
+        intent.setAction(ACTION_ENTRY_INFO);
+        intent.putExtra(ACTION_ENTRY_INFO_MEDIA_ID, mediaId);
+        intent.putExtra(ACTION_ENTRY_INFO_PATH, path);
+        intent.putExtra(ACTION_ENTRY_INFO_META_TITLE, metaTitle);
         context.startService(intent);
     }
 
+
+    public static void startActionAddMedia(Context context, String filePath, String devicePath, String deviceId) {
+        Intent intent = new Intent(context, MyIntentService.class);
+        intent.setAction(ACTION_ADD_MEDIA);
+        intent.putExtra(ACTION_ADD_MEDIA_DEVICE_ID, deviceId);
+        intent.putExtra(ACTION_ADD_MEDIA_DEVICE_PATH, devicePath);
+        intent.putExtra(ACTION_ADD_MEDIA_MEDIA_PATH, devicePath);
+        context.startService(intent);
+    }
 
     public MyIntentService() {
         super("ScannerIntentService");
@@ -63,17 +83,49 @@ public class MyIntentService extends IntentService {
                 if (deviceId < 0 || devicePath == null || "".equals(devicePath)) {
                     throw new IllegalArgumentException("the device info is null");
                 } else {
-                    handleActionScannel(getContentResolver(), devicePath, deviceId);
+                    handleActionScanner(getContentResolver(), devicePath, deviceId);
                 }
             } else if (ACTION_UPDATE_VALID.equals(action)) {
                 handleActionUpdateValid(getContentResolver());
-            } else if (ACTION_ENTRY_NFO.equals(action)) {
-                File nfoFile = (File) intent.getSerializableExtra(ACTION_ENTRY_NFO_NFOFILE);
-                long id = intent.getLongExtra(ACTION_ENTRY_NFO_MEDIA_ID, -1);
-                handlerActionMediaInfo(getContentResolver(), nfoFile, id);
+            } else if (ACTION_ENTRY_INFO.equals(action)) {
+                String path = intent.getStringExtra(ACTION_ENTRY_INFO_PATH);
+                long id = intent.getLongExtra(ACTION_ENTRY_INFO_MEDIA_ID, -1);
+                String mataTitle = intent.getStringExtra(ACTION_ENTRY_INFO_META_TITLE);
+                handlerActionMediaInfo(getContentResolver(), path, mataTitle, id);
+            } else if (ACTION_ADD_MEDIA.equals(action)) {
+                final String devicePath = intent.getStringExtra(ACTION_ADD_MEDIA_DEVICE_PATH);
+                final String mediaPath = intent.getStringExtra(ACTION_ADD_MEDIA_MEDIA_PATH);
+                final long deviceId = intent.getLongExtra(ACTION_ADD_MEDIA_DEVICE_ID, -1);
+                if (deviceId < 0 || !new File(mediaPath).exists()) {
+                    throw new IllegalArgumentException("the media is not exists");
+                } else {
+                    handlerActionAddMedia(getContentResolver(), mediaPath, devicePath, deviceId);
+                }
             }
         }
     }
+
+    private void handlerActionAddMedia(ContentResolver cr, String path, String devicePath, long deviceId) {
+        int width = 0;
+        int height = 0;
+        String title = null;
+        MediaMetadataRetriever mmr = new MediaMetadataRetriever();
+        try {
+            mmr.setDataSource(path);
+            width = Integer.parseInt(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
+            height = Integer.parseInt(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
+            title = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Log.e(this.getClass().getSimpleName(), "MediaMetadataRetriever error path=" + path);
+        } finally {
+            mmr.release();
+        }
+        Uri uri = MediaStoreHelper.addNewMediaBase(cr, path, devicePath, deviceId, width, height, title);
+        long mediaId = ContentUris.parseId(uri);
+        startActionEntryInfo(this, path, title, mediaId);
+    }
+
 
     private void handleActionUpdateValid(ContentResolver cr) {
         Cursor c = getContentResolver().query(com.vst.LocalPlayer.component.provider.MediaStore.MediaDevice.CONTENT_URI, null,
@@ -82,32 +134,62 @@ public class MyIntentService extends IntentService {
             String devicePath = c.getString(c.getColumnIndex(com.vst.LocalPlayer.component.provider.MediaStore.MediaDevice.FIELD_DEVICE_PATH));
             String deviceUUID = c.getString(c.getColumnIndex(com.vst.LocalPlayer.component.provider.MediaStore.MediaDevice.FIELD_DEVICE_UUID));
             long deviceId = c.getLong(c.getColumnIndex(com.vst.LocalPlayer.component.provider.MediaStore.MediaDevice._ID));
-            System.out.println("devicePath=" + devicePath + ",deviceUUID=" + deviceUUID);
             boolean valid = MediaStoreHelper.checkDeviceValid(devicePath, deviceUUID);
-            System.out.println("valid=" + valid);
             MediaStoreHelper.updateMediaDeviceValid(cr, devicePath, deviceUUID, valid);
             MediaStoreHelper.updateMediaValidByDevice(cr, deviceId, valid);
         }
         c.close();
     }
 
-    private void handleActionScannel(ContentResolver cr, String devicePath, long deviceId) {
+    private void handleActionScanner(ContentResolver cr, String devicePath, long deviceId) {
         long start = System.currentTimeMillis();
         scannerVideoFiles(cr, devicePath, devicePath, deviceId);
         long end = System.currentTimeMillis();
-        Log.e("~~", "" + (end - start) / 1000f);
+        Log.e("handleActionScanner", "" + (end - start) / 1000f);
     }
 
 
-    private void handlerActionMediaInfo(ContentResolver cr, File nfoFile, long mediaBaseId) {
-        //录入本地媒体信息
-
-
-        //录入网络媒体信息
-
-
-        //媒体信息关联到MediaBaseTable
-
+    private void handlerActionMediaInfo(ContentResolver cr, String mediaPath, String metaTitle, long mediaBaseId) {
+        String sourceID;
+        //Log.e("Info", "mediaPath=" + mediaPath + ",mediaBaseId=" + mediaBaseId);
+        if (mediaBaseId >= 0) {
+            File mediaFile = new File(mediaPath);
+            //nfo api
+            //本地文件寻找imdbId
+            sourceID = NFOApi.getImdbIdFromNFOFile(mediaPath);
+            Log.w("Info", "FromNFO imdb=" + sourceID);
+            if (sourceID == null) {
+                if (metaTitle != null) {
+                    sourceID = IMDBApi.getImdbIdFromSearch(metaTitle, null);
+                } else {
+                    String name = IMDBApi.smartMediaName(mediaFile.getName());
+                    sourceID = IMDBApi.getImdbIdFromSearch(name, null);
+                }
+            }
+            Log.w("Info", "FromIMDB imdb=" + sourceID);
+            if (sourceID != null) {
+                //exsist  get sourceID
+                boolean sourceExist = false;
+                Cursor c = cr.query(MediaStore.MediaInfo.CONTENT_URI, null, MediaStore.MediaInfo.FIELD_SOURCE_ID + "=?",
+                        new String[]{sourceID}, null);
+                if (c.getCount() > 0) {
+                    sourceExist = true;
+                }
+                c.close();
+                if (!sourceExist) {
+                    String json = IMDBApi.imdbById(sourceID, null);
+                    Uri uri = MediaStoreHelper.insertMediaInfo(cr, json, sourceID);
+                }
+            }
+            //douban api
+            Log.w("Info", "mediaSourceId=" + sourceID);
+            //媒体信息关联到MediaBaseTable
+            if (sourceID != null) {
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaBase.FIELD_MEDIA_INFO_SOURCEID, sourceID);
+                cr.update(MediaStore.getContentUri(MediaStore.MediaBase.TABLE_NAME, mediaBaseId), values, null, null);
+            }
+        }
     }
 
 
@@ -155,39 +237,14 @@ public class MyIntentService extends IntentService {
         }
     }*/
 
-
-   /* private void scannerMediaToStore(String path, String devicePath, long deviceId) {
-        boolean storeExist = false;
-        Cursor cursor = this.getContentResolver().query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                new String[]{MediaStore.Video.Media.DATA}, MediaStore.Video.Media.DATA + "=?", new String[]{path}, null);
-        if (cursor != null) {
-            if (cursor.getCount() > 0) {
-                storeExist = true;
-            }
-            cursor.close();
-        }
-        if (!storeExist) {
-            MediaScannerConnection.scanFile(this.getApplicationContext(), new String[]{path}, new String[1], null);
-        } else {
-            Log.e("SCANNER", "-----scannerFiles--exist");
-        }
-
-        ContentResolver cr = getContentResolver();
-
-        MediaStoreHelper.addNewMediaBase(cr, path, devicePath, deviceId);
-
-
-    }*/
-
-
     /*递归*/
-    private void scannerVideoFiles(ContentResolver cr, String path, String devicePath, long deviceId) {
-        File root = new File(path);
-        if (!root.exists()) {
+    private void scannerVideoFiles(ContentResolver cr, String dir, String devicePath, long deviceId) {
+        File file = new File(dir);
+        if (!file.exists()) {
             return;
         }
-        if (root.isDirectory()) {
-            File[] files = root.listFiles(new FileFilter() {
+        if (file.isDirectory()) {
+            File[] files = file.listFiles(new FileFilter() {
                 @Override
                 public boolean accept(File pathname) {
                     if (!pathname.isHidden()) {
@@ -206,20 +263,13 @@ public class MyIntentService extends IntentService {
                 }
             });
             if (files != null && files.length > 0) {
-                for (File file : files) {
-                    scannerVideoFiles(cr, file.getAbsolutePath(), devicePath, deviceId);
+                for (File f : files) {
+                    scannerVideoFiles(cr, f.getAbsolutePath(), devicePath, deviceId);
                 }
             }
         } else {
-            Uri uri = MediaStoreHelper.addNewMediaBase(cr, path, devicePath, deviceId);
-            long mediaId = ContentUris.parseId(uri);
-            if (mediaId > 0) {
-                //nfo api
-
-                //imdb api
-
-                //douban api
-            }
+            String path = file.getAbsolutePath();
+            handlerActionAddMedia(cr, path, devicePath, deviceId);
         }
     }
 }

@@ -3,9 +3,11 @@ package com.vst.LocalPlayer;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.media.MediaMetadataRetriever;
 import android.net.Uri;
+import android.os.Bundle;
 import android.util.Log;
+
+import com.vst.LocalPlayer.component.activity.PlayerActivity;
 
 import java.io.File;
 import java.io.FileReader;
@@ -20,91 +22,21 @@ public class Utils {
 
     private static final String TAG = "Utils";
 
-    /* This method may be  time-consuming.*/
-    public static MediaMeta readMediaMeta(String mediaPath) {
-        MediaMetadataRetriever mmr = new MediaMetadataRetriever();
-        MediaMeta mediaMeta = null;
-        if (mediaPath.startsWith("file://")) {
-            mediaPath = mediaPath.replace("file://", "");
-        }
-        try {
-            mmr.setDataSource(mediaPath);
-            mediaMeta = new MediaMeta();
-            for (int i = 0; i < 25; i++) {
-                String x = mmr.extractMetadata(i);
-                //Log.d(TAG, i + ":" + x);
-            }
-            mediaMeta.duration = Long.parseLong(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
-            mediaMeta.bitrate = Long.parseLong(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE));
-            mediaMeta.width = Integer.parseInt(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
-            mediaMeta.height = Integer.parseInt(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
-            mediaMeta.title = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
-        } catch (IllegalArgumentException e) {
-            e.printStackTrace();
-        } catch (IllegalStateException e) {
-            e.printStackTrace();
-        } finally {
-            mmr.release();
-        }
-
-        /*MediaExtractor extractor = new MediaExtractor();
-        try {
-            extractor.setDataSource(mediaPath);
-            *//*int numTracks = extractor.getTrackCount();
-            Log.d(TAG, "numTracks:" + numTracks);
-            for (int i = 0; i < numTracks; ++i) {
-                MediaFormat format = extractor.getTrackFormat(i);
-                String mime = format.getString(MediaFormat.KEY_MIME);
-                Log.d(TAG, "mime:" + mime);
-                if (true) {
-                    extractor.selectTrack(i);
-                }
-            }*//*
-            ByteBuffer inputBuffer = ByteBuffer.allocate(1024);
-            while (extractor.readSampleData(inputBuffer, 1024) >= 0) {
-                int trackIndex = extractor.getSampleTrackIndex();
-                long presentationTimeUs = extractor.getSampleTime();
-                Log.d(TAG, "trackIndex" + trackIndex + " ,presentationTimeUs : " + presentationTimeUs);
-                extractor.advance();
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            extractor.release();
-            extractor = null;
-        }*/
-
-        /*MediaPlayer mp = new MediaPlayer();
-        try {
-            mp.setDataSource(mediaPath);
-            MediaPlayer.TrackInfo[] trackInfos = mp.getTrackInfo();
-            Log.d(TAG, "trackInfos:" + trackInfos);
-            if (trackInfos != null) {
-                for (int i = 0; i < trackInfos.length; i++) {
-                    MediaPlayer.TrackInfo trackInfo = trackInfos[i];
-                    Log.d(TAG, "trackInfo:" + trackInfo.describeContents() + "," + trackInfo.getTrackType() + "," + trackInfo.getLanguage());
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            mp.release();
-        }*/
-
-
-        return mediaMeta;
-    }
-
-
-    public static void pleyMediaFile(Context ctx, File mediaFile) {
+    public static void playMediaFile(Context ctx, File mediaFile, long id) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setDataAndType(Uri.fromFile(mediaFile), "video/*");
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setPackage(ctx.getPackageName());
+        intent.setClass(ctx, PlayerActivity.class);
+        if (id >= 0) {
+            Bundle args = new Bundle();
+            args.putLong("_id", id);
+            intent.putExtras(args);
+        }
         ctx.startActivity(intent);
     }
 
-    public static void pleyAudioFile(Context ctx, File mediaFile) {
+    public static void playAudioFile(Context ctx, File mediaFile) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setDataAndType(Uri.fromFile(mediaFile), "audio/*");
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
