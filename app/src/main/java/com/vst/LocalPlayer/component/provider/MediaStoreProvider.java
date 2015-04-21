@@ -138,8 +138,8 @@ public class MediaStoreProvider extends ContentProvider {
                 }
                 String rawQuerySQL = "select " + columnName + " from " + MediaStore.MediaBase.TABLE_NAME
                         + " LEFT JOIN " + MediaStore.MediaInfo.TABLE_NAME
-                        + " ON " + MediaStore.MediaBase.TABLE_NAME + "." + MediaStore.MediaBase.FIELD_MEDIA_INFO_SOURCEID
-                        + " = " + MediaStore.MediaInfo.TABLE_NAME + "." + MediaStore.MediaInfo.FIELD_SOURCE_ID
+                        + " ON " + MediaStore.MediaBase.TABLE_NAME + "." + MediaStore.MediaBase.FIELD_MEDIA_INFO_ID
+                        + " = " + MediaStore.MediaInfo.TABLE_NAME + "." + MediaStore.MediaInfo.FIELD_ID
                         + (selection == null ? " " : " where " + selection)
                         + (sortOrder == null ? " " : "ORDER BY " + sortOrder);
                 cursor = mDataBase.rawQuery(rawQuerySQL, selectionArgs);
@@ -158,11 +158,11 @@ public class MediaStoreProvider extends ContentProvider {
             case MEDIA_INFO_ITEM:
             case MEDIA_INFO_ITEM_ID:
                 if (rowId >= 0) {
-                    selection = MediaStore.MediaInfo._ID + "=?";
+                    selection = MediaStore.MediaInfo.FIELD_ID + "=?";
                     selectionArgs = new String[]{Long.toString(rowId)};
                 }
                 cursor = mDataBase.query(MediaStore.MediaInfo.TABLE_NAME, projection, selection,
-                        selectionArgs, MediaStore.MediaInfo._ID, null, sortOrder);
+                        selectionArgs, MediaStore.MediaInfo.FIELD_ID, null, sortOrder);
                 break;
             case MEDIA_RECORD_ITEM:
                 cursor = mDataBase.query(MediaStore.MediaRecord.TABLE_NAME, projection, selection,
@@ -205,7 +205,7 @@ public class MediaStoreProvider extends ContentProvider {
             case MEDIA_INFO_ITEM:
             case MEDIA_INFO_ITEM_ID:
                 if (rowId >= 0) {
-                    selection = MediaStore.MediaInfo._ID + "=?";
+                    selection = MediaStore.MediaInfo.FIELD_ID + "=?";
                     selectionArgs = new String[]{Long.toString(rowId)};
                 }
                 count = mDataBase.update(MediaStore.MediaInfo.TABLE_NAME, values, selection, selectionArgs);

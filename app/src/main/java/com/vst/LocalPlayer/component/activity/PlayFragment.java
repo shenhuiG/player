@@ -4,18 +4,24 @@ import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.view.KeyEvent;
-import android.view.MotionEvent;
+import android.util.Log;
+import android.view.*;
 
+import android.widget.PopupWindow;
+import android.widget.TextView;
 import com.vst.LocalPlayer.LocalMenuView;
 import com.vst.LocalPlayer.LocalSeekController;
+import com.vst.LocalPlayer.Utils;
 import com.vst.LocalPlayer.component.provider.MediaStore;
-import com.vst.LocalPlayer.model.IMDBApi;
 import com.vst.LocalPlayer.model.MediaBaseModel;
+import com.vst.dev.common.media.SubTrack;
+import com.vst.LocalPlayer.model.SubtripApi;
 import com.vst.dev.common.media.IPlayer;
 
 import net.myvst.v2.extra.media.MediaControlFragment;
@@ -23,7 +29,7 @@ import net.myvst.v2.extra.media.controller.MediaControllerManager;
 
 public class PlayFragment extends MediaControlFragment implements IPlayer.OnCompletionListener,
         IPlayer.OnErrorListener, IPlayer.OnPreparedListener, MediaControllerManager.KeyEventHandler,
-        IPlayer.OnInfoListener, LocalSeekController.ControlCallback {
+        IPlayer.OnInfoListener, LocalSeekController.ControlCallback, IPlayer.OnTimedTextChangedListener {
     private static final int HANDLE_ERROR = 0x0002;
     private static final int FINAL_PLAY = 0x0001;
     private Context mContext = null;
@@ -34,7 +40,11 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     private long mediaId = -1;
     private Handler mHandler;
     private LocalSeekController mSeekController;
-    private int mCycleMode = 0;
+    private int mCycleMode = IPlayer.NO_CYCLE;
+
+    public void setCycleMode(int i) {
+        mCycleMode = i;
+    }
 
     public static PlayFragment newInstance(Bundle args) {
         PlayFragment fragment = new PlayFragment();
@@ -65,7 +75,7 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
         if (mediaID >= 0) {
             System.out.println(mediaID);
             Cursor c = mContext.getContentResolver().query(MediaStore.MediaRecord.CONTENT_URI, null,
-                    MediaStore.MediaRecord.FIELD_MEDIA_ID + "=?", new String[]{mediaID + ""}, null, null);
+                    MediaStore.MediaRecord.FIELD_MEDIA_ID + "=?", new String[]{mediaID + ""}, null);
             if (c.getCount() > 0) {
                 c.moveToFirst();
                 return c.getInt(c.getColumnIndex(MediaStore.MediaRecord.FIELD_POSITION));
@@ -76,10 +86,13 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     }
 
 
-    private MediaBaseModel queryMediaBase(long mediaId) {
+    private MediaBaseModel queryMediaBase(long mediaId, String mediaPath) {
         MediaBaseModel model = new MediaBaseModel();
         if (mediaId < 0) {
-            model.name = IMDBApi.smartMediaName(mMediaPath);
+            model.name = Utils.smartMediaName(mediaPath);
+            if (model.name == null) {
+                model.name = mediaPath;
+            }
         } else {
             Cursor c = mContext.getContentResolver().query(MediaStore.getContentUri(
                     MediaStore.MediaBase.TABLE_NAME, mediaId), null, null, null, null);
@@ -178,7 +191,7 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
                     mMediaPath = (String) msg.obj;
                     System.out.println(mMediaPath);
                     if (mSeekController != null) {
-                        mSeekController.setMediaMeta(queryMediaBase(mediaId));
+                        mSeekController.setMediaMeta(queryMediaBase(mediaId, (String) msg.obj));
                     }
                     if (mPlayer != null && mMediaPath != null) {
                         mPlayer.setDecodeType(mDecodeType);
@@ -232,12 +245,20 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     public void onPrepared(IPlayer mp) {
         mPlayer.changeScale(mScaleSize);
         mPlayer.start();
-        System.out.println(mPlayer.getDuration() + "~~~~~~~");
+        SubTrack[] internalSubs = mPlayer.getInternalSubTitle();
+        Log.e("", "internalSubs  >" + internalSubs);
+        SubTrack[] localSubs = SubtripApi.getLocalSubTitle(mMediaPath);
+        Log.e("", "localSubs  >" + localSubs);
+        //Arrays.asList(internalSubs);
+        if (localSubs != null) {
+            mPlayer.setSubTrack(localSubs[0], 0);
+        }
     }
 
     @Override
     public boolean onError(IPlayer mp, int what, int extra) {
         if (what == IPlayer.VLC_INIT_ERROR) {
+
         } else {
             handleError("error");
         }
@@ -246,8 +267,18 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
 
     @Override
     public void onCompletion(IPlayer mp) {
-        if (getActivity() != null) {
-            getActivity().finish();
+        switch (mCycleMode) {
+            case IPlayer.NO_CYCLE:
+                if (getActivity() != null) {
+                    getActivity().finish();
+                }
+                break;
+            case IPlayer.SINGLE_CYCLE:
+                break;
+            case IPlayer.ALL_CYCLE:
+                break;
+            case IPlayer.QUEUE_CYCLE:
+                break;
         }
     }
 
@@ -310,10 +341,16 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
         mPlayer.setOnCompletionListener(this);
         mPlayer.setOnErrorListener(this);
         mPlayer.setOnPreparedListener(this);
+        mPlayer.setOnTimedTextChangedListener(this);
     }
 
     @Override
     public void changArguments(Bundle args) {
+        if (init(getArguments())) {
+            initController();
+        } else {
+            getActivity().finish();
+        }
     }
 
 
@@ -336,5 +373,46 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
             return true;
         }
         return false;
+    }
+
+    private PopupWindow mSubTitleWindow = null;
+    private WindowManager.LayoutParams mSubTitlesLocation = null;
+
+    private PopupWindow getAndMakeSubTitleWindow() {
+        if (mSubTitleWindow == null) {
+            TextView tv = new TextView(mContext);
+            tv.setTextColor(Color.YELLOW);
+            tv.getPaint().setFakeBoldText(true);
+            tv.setTextSize(com.vst.dev.common.util.Utils.getFitSize(mContext, 35));
+            tv.setShadowLayer(10, 0, 0, Color.BLACK);
+            tv.setGravity(Gravity.CENTER);
+            mSubTitleWindow = new PopupWindow(tv);
+            mSubTitleWindow.setFocusable(false);
+            mSubTitleWindow.setWindowLayoutMode(-1, -2);
+            mSubTitleWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+        return mSubTitleWindow;
+    }
+
+    @Override
+    public void onTimedTextChanger(String text, long stat, long end) {
+        mSubTitleWindow = getAndMakeSubTitleWindow();
+        if (text != null) {
+            TextView tv = (TextView) mSubTitleWindow.getContentView();
+            tv.setText(text);
+            if (!mSubTitleWindow.isShowing()) {
+                if (mSubTitlesLocation == null) {
+                    mSubTitlesLocation = new WindowManager.LayoutParams();
+                    mSubTitlesLocation.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+                    mSubTitlesLocation.y = com.vst.dev.common.util.Utils.getFitSize(mContext, 30);
+                }
+                mSubTitleWindow.showAtLocation((View) mPlayer, mSubTitlesLocation.gravity, 0,
+                        mSubTitlesLocation.y);
+            }
+        } else {
+            if (mSubTitleWindow != null && mSubTitleWindow.isShowing()) {
+                mSubTitleWindow.dismiss();
+            }
+        }
     }
 }

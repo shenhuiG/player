@@ -9,18 +9,54 @@ import android.util.Log;
 
 import com.vst.LocalPlayer.component.activity.PlayerActivity;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 public class Utils {
 
     private static final String TAG = "Utils";
+
+
+    /**
+     * 截取720P 标记之前，后面的全部丢掉
+     *
+     * @param fileName
+     * @return
+     */
+    public static String smartMediaName(String fileName) {
+        String reg = "WinG|ENG|aAf|3D|720P|720p|1080P|1080p|X264|DTS|BluRay|Bluray|HSBS|x264|CHD|H-SBS|" +
+                "Wiki|WiKi|ML|RemuX|CnSCG|HDChina|Sample|sample|AVC|MA|5.1|AC3|AAC|rip|265|" +
+                "HDTV|DL|DHD|HD|HEVC|DiCH|dich|dhd|hdtv|Pix|BAWLS|hv|NG";
+        //reduce ext
+        String result = fileName.substring(0, fileName.lastIndexOf("."));
+        //reduce other word like 720P,DTS,X264..
+        result = result.replaceAll(reg, "");
+        //reduce last .
+        String endReg = "[0-9]|[|]|.| |-";
+        String endX = "0123456789.-[] ";
+        Pattern pattern = Pattern.compile(endReg, Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(result);
+        if (matcher.matches()) {
+            return result;
+        }
+        if (result.length() > 2) {
+            String endChar = result.substring(result.length() - 1, result.length());
+            while (endX.contains(endChar)) {
+                result = result.substring(0, result.length() - 1);
+                if (result.length() > 2) {
+                    endChar = result.substring(result.length() - 1, result.length());
+                } else {
+                    break;
+                }
+            }
+        }
+        return result;
+    }
 
     public static void playMediaFile(Context ctx, File mediaFile, long id) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
@@ -44,13 +80,59 @@ public class Utils {
     }
 
     public enum FileCategory {
-        Music, Video, Picture, Doc, Zip, Apk, Other, Dir
+        Music, Video, BDMV, Picture, Doc, Zip, Apk, Other, Dir
+    }
+
+
+    public static boolean isBDMV(File dir) {
+        if (dir.isDirectory()) {
+            File bdmvDir = new File(dir, "BDMV");
+            File certificateDir = new File(dir, "CERTIFICATE");
+            if (bdmvDir.exists() && certificateDir.exists()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    public static String findBDMVMediaPath(File bdmv) {
+        File streamDir = new File(bdmv, "BDMV/STREAM");
+        File[] fs = streamDir.listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File file, String s) {
+                return s.endsWith(".m2ts");
+            }
+        });
+        if (fs != null && fs.length > 0) {
+            File target = null;
+            long size = 0;
+            for (int i = 0; i < fs.length; i++) {
+                File f = fs[i];
+                if (target == null) {
+                    target = f;
+                    size = f.getTotalSpace();
+                } else {
+                    long ss = f.getTotalSpace();
+                    if (ss > size) {
+                        size = ss;
+                        target = f;
+                    }
+                }
+            }
+            return target.getAbsolutePath();
+        }
+        return null;
     }
 
     public static FileCategory getFileCategory(File file) {
         if (file.exists()) {
             if (file.isDirectory()) {
-                return FileCategory.Dir;
+                if (isBDMV(file)) {
+                    return FileCategory.BDMV;
+                } else {
+                    return FileCategory.Dir;
+                }
             }
             String fileName = file.getName();
             int i = fileName.lastIndexOf(".");
@@ -87,6 +169,7 @@ public class Utils {
                 case Music:
                     return R.drawable.ic_disk_music;
                 case Video:
+                case BDMV:
                     return R.drawable.ic_disk_video;
                 case Picture:
                     return R.drawable.ic_disk_picture;
@@ -105,25 +188,6 @@ public class Utils {
         return 0;
     }
 
-
-    public static ArrayList<String> getAvailableDevicesPath(Context ctx) {
-        SharedPreferences sp = ctx.getSharedPreferences("USBDeviceInfo", Context.MODE_MULTI_PROCESS);
-        String possibleDevicesString = sp.getString("DevicesPathString", "");
-        if (!"".equals(possibleDevicesString)) {
-            String[] devicesPath = possibleDevicesString.split(";");
-            if (devicesPath != null && devicesPath.length > 0) {
-                ArrayList<String> devicesArray = new ArrayList<String>();
-                for (int i = 0; i < devicesPath.length; i++) {
-                    String filePath = devicesPath[i];
-                    if (new File(filePath).exists()) {
-                        devicesArray.add(filePath);
-                    }
-                }
-                return devicesArray;
-            }
-        }
-        return null;
-    }
 
     public static boolean fileIsVideo(File file) {
         String filename = file.getName();

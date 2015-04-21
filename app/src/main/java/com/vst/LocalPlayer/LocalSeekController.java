@@ -81,15 +81,17 @@ public class LocalSeekController extends FrameLayout implements IInverseControl 
     }
 
     public void setMediaMeta(MediaBaseModel mediaMeta) {
-        mMediaMeta = mediaMeta;
+        System.out.println("setMediaMeta mediaMeta=" + mediaMeta);
         if (mMetaView != null) {
-            if (mMetaView != null) {
+            if (mediaMeta != null) {
                 updateMetaView(mediaMeta);
             } else {
                 mMetaView.removeAllViews();
             }
         }
+        mMediaMeta = mediaMeta;
     }
+
 
     public void setControl(ControlCallback control) {
         mControl = control;
@@ -99,28 +101,25 @@ public class LocalSeekController extends FrameLayout implements IInverseControl 
         if (mMetaView != null) {
             mMetaView.removeAllViews();
             TextView title = new TextView(mContext);
-            title.setText("hhhhhh");
+            title.setText(mediaMeta.name);
+            title.setTextSize(TypedValue.COMPLEX_UNIT_PX, Utils.getFitSize(mContext, 30));
             mMetaView.addView(title, new LinearLayout.LayoutParams(0, -2, 1.0f));
             ImageView cycleModImg = new ImageView(mContext);
             cycleModImg.setBackgroundResource(R.drawable.bg_format);
             cycleModImg.setImageResource(R.drawable.ic_loop_all);
             mMetaView.addView(cycleModImg, new LinearLayout.LayoutParams(-2, -2));
-
             ImageView cycleModImg1 = new ImageView(mContext);
             cycleModImg1.setBackgroundResource(R.drawable.bg_format);
             cycleModImg1.setImageResource(R.drawable.ic_loop_all);
             mMetaView.addView(cycleModImg1, new LinearLayout.LayoutParams(-2, -2));
-
             ImageView cycleModImg2 = new ImageView(mContext);
             cycleModImg2.setBackgroundResource(R.drawable.bg_format);
             cycleModImg2.setImageResource(R.drawable.ic_loop_all);
             mMetaView.addView(cycleModImg2, new LinearLayout.LayoutParams(-2, -2));
-
             ImageView cycleModImg3 = new ImageView(mContext);
             cycleModImg3.setBackgroundResource(R.drawable.bg_format);
             cycleModImg3.setImageResource(R.drawable.ic_loop_all);
             mMetaView.addView(cycleModImg3, new LinearLayout.LayoutParams(-2, -2));
-
         }
     }
 

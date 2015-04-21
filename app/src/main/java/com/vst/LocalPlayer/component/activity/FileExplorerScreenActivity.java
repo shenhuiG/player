@@ -85,13 +85,20 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
         ((TextView) emptyView).setTextSize(TypedValue.COMPLEX_UNIT_PX, com.vst.dev.common.util.Utils.getFitSize(ctx, 30));
         mListView = new ListView(ctx);
         mListView.setEmptyView(emptyView);
-        mListView.setPadding(120, 0, 120, 0);
+        mListView.setPadding(
+                com.vst.dev.common.util.Utils.getFitSize(ctx, 120),
+                0,
+                com.vst.dev.common.util.Utils.getFitSize(ctx, 120),
+                0);
         mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 String fileName = (String) parent.getAdapter().getItem(position);
                 File file = new File(mExplorerRootPath, fileName);
                 Utils.FileCategory category = Utils.getFileCategory(file);
+                if (category == null) {
+                    return;
+                }
                 switch (category) {
                     case Dir:
                         selection = -1;
@@ -117,6 +124,13 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
                         }
                         c.close();
                         Utils.playMediaFile(ctx, file, mediaId);
+                        break;
+                    case BDMV:
+                        String target = Utils.findBDMVMediaPath(file);
+                        System.out.println("target" + target);
+                        if (target != null) {
+                            Utils.playMediaFile(ctx, new File(target), -1);
+                        }
                         break;
                     default:
                         break;
@@ -237,6 +251,10 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
                 ImageView iconView = new ImageView(ctx);
                 TextView nameView = new TextView(ctx);
                 nameView.setGravity(Gravity.CENTER_VERTICAL);
+                nameView.setTextSize(TypedValue.COMPLEX_UNIT_PX, 25);
+                nameView.setSingleLine(true);
+                nameView.setEllipsize(TextUtils.TruncateAt.MARQUEE);
+                nameView.setMarqueeRepeatLimit(Integer.MAX_VALUE);
                 nameView.setPadding(com.vst.dev.common.util.Utils.getFitSize(ctx, 30), 0, 0, 0);
                 layout.addView(iconView);
                 layout.addView(nameView);
@@ -250,6 +268,7 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
             }
             File file = new File(mExplorerRootPath, filePath);
             holder.fileNameView.setText(file.getName());
+
             holder.fileIconView.setImageResource(Utils.getFileCategoryIcon(file));
             return convertView;
         }
@@ -257,6 +276,7 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
         private class ViewHolder {
             ImageView fileIconView;
             TextView fileNameView;
+            TextView tagTextView;
         }
     }
 

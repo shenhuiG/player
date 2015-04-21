@@ -83,7 +83,7 @@ public class MyIntentService extends IntentService {
                 if (deviceId < 0 || devicePath == null || "".equals(devicePath)) {
                     throw new IllegalArgumentException("the device info is null");
                 } else {
-                    handleActionScanner(getContentResolver(), devicePath, deviceId);
+                    handleActionScanner(getContentResolver(), new File(devicePath), deviceId);
                 }
             } else if (ACTION_UPDATE_VALID.equals(action)) {
                 handleActionUpdateValid(getContentResolver());
@@ -112,11 +112,11 @@ public class MyIntentService extends IntentService {
         MediaMetadataRetriever mmr = new MediaMetadataRetriever();
         try {
             mmr.setDataSource(path);
+            title = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
             width = Integer.parseInt(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
             height = Integer.parseInt(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
-            title = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
         } catch (Exception e) {
-            e.printStackTrace();
+            //e.printStackTrace();
             Log.e(this.getClass().getSimpleName(), "MediaMetadataRetriever error path=" + path);
         } finally {
             mmr.release();
@@ -141,15 +141,16 @@ public class MyIntentService extends IntentService {
         c.close();
     }
 
-    private void handleActionScanner(ContentResolver cr, String devicePath, long deviceId) {
+    private void handleActionScanner(ContentResolver cr, File sda, long deviceId) {
         long start = System.currentTimeMillis();
-        scannerVideoFiles(cr, devicePath, devicePath, deviceId);
+        scannerVideoFiles(cr, sda, sda.getAbsolutePath(), deviceId);
         long end = System.currentTimeMillis();
         Log.e("handleActionScanner", "" + (end - start) / 1000f);
     }
 
 
     private void handlerActionMediaInfo(ContentResolver cr, String mediaPath, String metaTitle, long mediaBaseId) {
+        long mediaInfoId = -1;
         String sourceID;
         //Log.e("Info", "mediaPath=" + mediaPath + ",mediaBaseId=" + mediaBaseId);
         if (mediaBaseId >= 0) {
@@ -162,7 +163,7 @@ public class MyIntentService extends IntentService {
                 if (metaTitle != null) {
                     sourceID = IMDBApi.getImdbIdFromSearch(metaTitle, null);
                 } else {
-                    String name = IMDBApi.smartMediaName(mediaFile.getName());
+                    String name = Utils.smartMediaName(mediaFile.getName());
                     sourceID = IMDBApi.getImdbIdFromSearch(name, null);
                 }
             }
@@ -179,14 +180,16 @@ public class MyIntentService extends IntentService {
                 if (!sourceExist) {
                     String json = IMDBApi.imdbById(sourceID, null);
                     Uri uri = MediaStoreHelper.insertMediaInfo(cr, json, sourceID);
+                    mediaInfoId = ContentUris.parseId(uri);
                 }
             }
+
             //douban api
             Log.w("Info", "mediaSourceId=" + sourceID);
             //媒体信息关联到MediaBaseTable
-            if (sourceID != null) {
+            if (mediaInfoId > -1) {
                 ContentValues values = new ContentValues();
-                values.put(MediaStore.MediaBase.FIELD_MEDIA_INFO_SOURCEID, sourceID);
+                values.put(MediaStore.MediaBase.FIELD_MEDIA_INFO_ID, mediaInfoId);
                 cr.update(MediaStore.getContentUri(MediaStore.MediaBase.TABLE_NAME, mediaBaseId), values, null, null);
             }
         }
@@ -238,38 +241,41 @@ public class MyIntentService extends IntentService {
     }*/
 
     /*递归*/
-    private void scannerVideoFiles(ContentResolver cr, String dir, String devicePath, long deviceId) {
-        File file = new File(dir);
-        if (!file.exists()) {
+    private void scannerVideoFiles(ContentResolver cr, File sda, String devicePath, long deviceId) {
+        if (!sda.exists()) {
             return;
         }
+        File file = sda;
         if (file.isDirectory()) {
-            File[] files = file.listFiles(new FileFilter() {
-                @Override
-                public boolean accept(File pathname) {
-                    if (!pathname.isHidden()) {
-                        String filename = pathname.getName();
-                        if (filename.contains("$REC")) {
-                            return false;
+            if (Utils.isBDMV(file)) {
+                handlerActionAddMedia(cr, file.getAbsolutePath(), devicePath, deviceId);
+            } else {
+                File[] files = file.listFiles(new FileFilter() {
+                    @Override
+                    public boolean accept(File pathname) {
+                        if (!pathname.isHidden()) {
+                            String filename = pathname.getName();
+                            if (filename.contains("$REC")) {
+                                return false;
+                            }
+                            if (Utils.fileIsVideo(pathname)) {
+                                return true;
+                            }
+                            if (pathname.isDirectory()) {
+                                return true;
+                            }
                         }
-                        if (Utils.fileIsVideo(pathname)) {
-                            return true;
-                        }
-                        if (pathname.isDirectory()) {
-                            return true;
-                        }
+                        return false;
                     }
-                    return false;
-                }
-            });
-            if (files != null && files.length > 0) {
-                for (File f : files) {
-                    scannerVideoFiles(cr, f.getAbsolutePath(), devicePath, deviceId);
+                });
+                if (files != null && files.length > 0) {
+                    for (File f : files) {
+                        scannerVideoFiles(cr, f, devicePath, deviceId);
+                    }
                 }
             }
         } else {
-            String path = file.getAbsolutePath();
-            handlerActionAddMedia(cr, path, devicePath, deviceId);
+            handlerActionAddMedia(cr, file.getAbsolutePath(), devicePath, deviceId);
         }
     }
 }

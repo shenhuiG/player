@@ -28,13 +28,13 @@ public class SubTripe {
     private long mOffset = 0;
     private Subtitle mSubTitle = null;
 
-    public SubTripe(IPlayer player, final Uri uri) {
+    public SubTripe(IPlayer player, final String path) {
         super();
         mPlayer = player;
         new Thread(new Runnable() {
             @Override
             public void run() {
-                ArrayList<Subtitle> list = parseSubtitles(uri);
+                ArrayList<Subtitle> list = parseSubtitles(path);
                 if (list != null && list.size() > 0) {
                     mSubtitles = list;
                     mHandler.sendEmptyMessage(0);
@@ -43,21 +43,20 @@ public class SubTripe {
         }).start();
     }
 
-    private ArrayList<Subtitle> parseSubtitles(Uri uri) {
+    private ArrayList<Subtitle> parseSubtitles(String path) {
         BufferedReader reader = null;
         InputStream in = null;
         HttpURLConnection conn = null;
         ArrayList<Subtitle> subtitleList = new ArrayList<SubTripe.Subtitle>();
         try {
-            String scheme = uri.getScheme();
-            if ("file".equalsIgnoreCase(scheme)) {
-                String path = uri.getPath();
-                in = new FileInputStream(path);
-            } else if ("http".equalsIgnoreCase(scheme)) {
-                conn = (HttpURLConnection) new URL(uri.toString()).openConnection();
+            if (path.startsWith("http://")) {
+                conn = (HttpURLConnection) new URL(path).openConnection();
                 conn.setConnectTimeout(3000);
                 conn.setReadTimeout(3000);
                 in = conn.getInputStream();
+            } else {
+                path = path.replace("file://", "");
+                in = new FileInputStream(path);
             }
             BufferedInputStream bufferedInputStream = new BufferedInputStream(in);
             bufferedInputStream.mark(2);
@@ -113,17 +112,17 @@ public class SubTripe {
     private static String checkCharset(int p) {
         String code = null;
         switch (p) {
-        case 0xefbb:
-            code = "UTF-8";
-            break;
-        case 0xfffe:
-            code = "Unicode";
-            break;
-        case 0xfeff:
-            code = "UTF-16BE";
-            break;
-        default:
-            code = "GBK";
+            case 0xefbb:
+                code = "UTF-8";
+                break;
+            case 0xfffe:
+                code = "Unicode";
+                break;
+            case 0xfeff:
+                code = "UTF-16BE";
+                break;
+            default:
+                code = "GBK";
         }
         return code;
     }

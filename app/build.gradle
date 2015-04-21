@@ -5,11 +5,11 @@ android {
     buildToolsVersion "20.0.0"
 
     defaultConfig {
-        applicationId "vst.com.localplayer"
-        minSdkVersion 16
+        applicationId "com.vst.LocalPlayer"
+        minSdkVersion 15
         targetSdkVersion 16
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.00"
     }
     buildTypes {
         release {
@@ -20,7 +20,7 @@ android {
     sourceSets {
         main {
             jniLibs.srcDirs = ['jniLibs']
-            res.srcDirs = ['src/main/res', 'src/main/res/raw']
+            res.srcDirs = ['src/main/res']
         }
     }
 }

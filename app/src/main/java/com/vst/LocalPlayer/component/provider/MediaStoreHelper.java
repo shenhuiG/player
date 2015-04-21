@@ -63,7 +63,7 @@ public class MediaStoreHelper {
         values.put(MediaStore.MediaDevice.FIELD_DEVICE_UUID, uuid);
         values.put(MediaStore.MediaDevice.FIELD_DEVICE_PATH, path);
         values.put(MediaStore.MediaDevice.FIELD_LAST_MODIFY_TIME, Utils.getDeviceLaseTime(path));
-        values.put(MediaStore.MediaDevice.FIELD_FS_SIZE, calculatSFSize(path));
+        values.put(MediaStore.MediaDevice.FIELD_FS_SIZE, calculateSFSize(path));
         values.put(MediaStore.MediaDevice.FIELD_VALID, 1);
         Uri uri = cr.insert(MediaStore.MediaDevice.CONTENT_URI, values);
         return uri;
@@ -113,7 +113,7 @@ public class MediaStoreHelper {
             , int width, int height, String metaTitle) {
         Uri uri = null;
         File mediaFile = new File(mediaPath);
-        if (mediaFile.exists() && mediaFile.isFile()) {
+        if (mediaFile.exists()) {
             ContentValues values = new ContentValues();
             values.put(MediaStore.MediaBase.FIELD_NAME, mediaFile.getName());
             values.put(MediaStore.MediaBase.FIELD_FILE_SIZE, mediaFile.getTotalSpace());
@@ -145,7 +145,7 @@ public class MediaStoreHelper {
         return count;
     }
 
-    private static long calculatSFSize(String path) {
+    private static long calculateSFSize(String path) {
         StatFs statFs = new StatFs(path);
         long blockSize = statFs.getBlockSize();
         long blockCount = statFs.getBlockCount();

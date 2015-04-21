@@ -90,42 +90,4 @@ public class IMDBApi {
         }
         return null;
     }
-
-
-    /**
-     * 截取720P 标记之前，后面的全部丢掉
-     *
-     * @param fileName
-     * @return
-     */
-    public static String smartMediaName(String fileName) {
-        String reg = "WinG|ENG|aAf|3D|720P|720p|1080P|1080p|X264|DTS|BluRay|Bluray|HSBS|x264|CHD|H-SBS" +
-                "|Wiki|WiKi|ML|RemuX|CnSCG|HDChina|Sample|sample|AVC|MA|5.1|AC3|AAC|rip|265|[|]" +
-                "|HDTV|DL|DHD|HD|HEVC|DiCH|dich|dhd|hdtv|Pix|BAWLS|hv|NG";
-        //reduce ext
-        String result = fileName.substring(0, fileName.lastIndexOf("."));
-        //reduce other word like 720P,DTS,X264..
-        result = result.replaceAll(reg, "");
-        //reduce last .
-        String endReg = "[0-9]|[|]|.| |-";
-        String endX = "0123456789.-[] ";
-        Pattern pattern = Pattern.compile(endReg, Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(result);
-        if (matcher.matches()) {
-            return result;
-        }
-        if (result.length() > 2) {
-            String endChar = result.substring(result.length() - 1, result.length());
-            while (endX.contains(endChar)) {
-                result = result.substring(0, result.length() - 1);
-                if (result.length() > 2) {
-                    endChar = result.substring(result.length() - 1, result.length());
-                } else {
-                    break;
-                }
-            }
-        }
-        return result;
-    }
-
 }

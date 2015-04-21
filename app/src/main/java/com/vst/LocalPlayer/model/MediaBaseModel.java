@@ -2,7 +2,7 @@ package com.vst.LocalPlayer.model;
 
 
 public class MediaBaseModel {
-    public long id;
+    public long id = -1;
     public int width;
     public int height;
     public String name;
@@ -22,5 +22,10 @@ public class MediaBaseModel {
         this.title = title;
         this.poster = poster;
         this.id = id;
+    }
+
+    @Override
+    public String toString() {
+        return name + "," + title + "," + metaTitle;
     }
 }

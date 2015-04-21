@@ -1,5 +1,6 @@
 package com.vst.dev.common.media;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -26,17 +27,12 @@ import android.view.ViewParent;
 import android.widget.FrameLayout;
 import android.widget.PopupWindow;
 import android.widget.ProgressBar;
-
 import com.vst.LocalPlayer.R;
 import com.vst.dev.common.util.Utils;
-
-import org.videolan.libvlc.EventHandler;
-import org.videolan.libvlc.IVideoPlayer;
-import org.videolan.libvlc.LibVLC;
-import org.videolan.libvlc.LibVlcException;
-import org.videolan.libvlc.Media;
+import org.videolan.libvlc.*;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -126,13 +122,13 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         mContext.sendBroadcast(i);
         releaseOldMPInstance();
         switch (mDecodeType) {
-        case SOFT_DECODE:
-            openVideoByVLCPlayer();
-            break;
-        case HARD_DECODE:
-        default:
-            openVideoByMediaPlayer();
-            break;
+            case SOFT_DECODE:
+                openVideoByVLCPlayer();
+                break;
+            case HARD_DECODE:
+            default:
+                openVideoByMediaPlayer();
+                break;
         }
     }
 
@@ -179,6 +175,85 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         } catch (Throwable e) {
             e.printStackTrace();
         }
+    }
+
+    public AudioTrack[] getInternalAudioTrack() {
+        if (mDecodeType == SOFT_DECODE) {
+            if (mLibVLC != null) {
+                TrackInfo[] trackInfos = mLibVLC.readTracksInfoInternal();
+                if (trackInfos != null && trackInfos.length > 0) {
+                    ArrayList<AudioTrack> list = new ArrayList<AudioTrack>();
+                    for (int i = 0; i < trackInfos.length; i++) {
+                        TrackInfo info = trackInfos[i];
+                        if (info.Type == TrackInfo.TYPE_AUDIO) {
+                            if (!TextUtils.isEmpty(info.Language)) {
+                                AudioTrack subTrack = new AudioTrack();
+                                subTrack.trackId = info.Id;
+                                subTrack.language = info.Language;
+                                list.add(subTrack);
+                            }
+                        }
+                    }
+                    if (list.size() > 0) {
+                        return list.toArray(new AudioTrack[0]);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public void setAudioTrack(AudioTrack audioTrack) {
+        if (mDecodeType == SOFT_DECODE) {
+            if (mLibVLC != null) {
+                mLibVLC.setAudioTrack(audioTrack.trackId);
+            }
+        }
+    }
+
+    @Override
+    @TargetApi(16)
+    public SubTrack[] getInternalSubTitle() {
+        if (mDecodeType == HARD_DECODE) {
+            if (mMediaPlayer != null) {
+                MediaPlayer.TrackInfo[] trackInfos = mMediaPlayer.getTrackInfo();
+                if (trackInfos != null && trackInfos.length > 0) {
+                    for (int i = 0; i < trackInfos.length; i++) {
+                        MediaPlayer.TrackInfo info = trackInfos[i];
+                        Log.e(TAG, "TrackInfo: " + info.getTrackType() + ", "
+                                + info.getLanguage() + "," + info.describeContents());
+                        if (info.getTrackType() == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_AUDIO) {
+                        }
+                        if (info.getTrackType() == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_TIMEDTEXT) {
+                        }
+                    }
+                }
+            }
+        } else {
+            if (mLibVLC != null) {
+                TrackInfo[] trackInfos = mLibVLC.readTracksInfoInternal();
+                if (trackInfos != null && trackInfos.length > 0) {
+                    ArrayList<SubTrack> list = new ArrayList<SubTrack>();
+                    for (int i = 0; i < trackInfos.length; i++) {
+                        TrackInfo info = trackInfos[i];
+                        if (info.Type == TrackInfo.TYPE_TEXT) {
+                            if (!TextUtils.isEmpty(info.Language)) {
+                                SubTrack subTrack = new SubTrack();
+                                subTrack.from = SubTrack.SubTrackType.Internal;
+                                subTrack.trackId = info.Id;
+                                subTrack.language = info.Language;
+                                subTrack.name = "internal " + info.Language;
+                                list.add(subTrack);
+                            }
+                        }
+                    }
+                    if (list.size() > 0) {
+                        return list.toArray(new SubTrack[0]);
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     /*
@@ -255,6 +330,7 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
                     mSurfaceHolder.setKeepScreenOn(true);
                     EventHandler.getInstance().addHandler(mVlcHandler);
                     setKeepScreenOn(true);
+                    mLibVLC.setMediaList();
                     mLibVLC.getMediaList().add(new Media(mLibVLC, mUri.toString()), null);
                     mLibVLC.getMediaList().addParams(mHeader);
                     mLibVLC.playIndex(mLibVLC.getMediaList().size() - 1);
@@ -272,11 +348,11 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         if (parent != null) {
             ((View) parent).addOnLayoutChangeListener(mLayoutChangeListener);
         }
-    };
+    }
 
     private OnLayoutChangeListener mLayoutChangeListener = new OnLayoutChangeListener() {
         public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft, int oldTop,
-                int oldRight, int oldBottom) {
+                                   int oldRight, int oldBottom) {
             if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) {
                 changeScale(mCurrentSize);
             }
@@ -317,6 +393,7 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
     public void setOnTimedTextChangedListener(OnTimedTextChangedListener listener) {
         mOnTimedTextChangedListener = listener;
     }
+
 
     @Override
     public void setOnPreparedListener(IPlayer.OnPreparedListener l) {
@@ -429,18 +506,18 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
     }
 
     @Override
-    public void seekTo(int msec) {
-        if (isInPlaybackState() && msec >= 0) {
+    public void seekTo(int ms) {
+        if (isInPlaybackState() && ms >= 0) {
             if (mDecodeType == SOFT_DECODE && mLibVLC != null) {
-                mLibVLC.setTime(msec);
+                mLibVLC.setTime(ms);
             } else {
                 if (mMediaPlayer != null) {
-                    mMediaPlayer.seekTo(msec);
+                    mMediaPlayer.seekTo(ms);
                 }
             }
             mSeekWhenPrepared = 0;
         } else {
-            mSeekWhenPrepared = msec;
+            mSeekWhenPrepared = ms;
         }
     }
 
@@ -463,11 +540,11 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         boolean inPlayState = mCurrentState != STATE_ERROR && mCurrentState != STATE_IDLE
                 && mCurrentState != STATE_PREPARING;
         switch (mDecodeType) {
-        case SOFT_DECODE:
-            return mLibVLC != null && inPlayState;
-        case HARD_DECODE:
-        default:
-            return mMediaPlayer != null && inPlayState;
+            case SOFT_DECODE:
+                return mLibVLC != null && inPlayState;
+            case HARD_DECODE:
+            default:
+                return mMediaPlayer != null && inPlayState;
         }
     }
 
@@ -697,60 +774,60 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
                 Bundle b = msg.getData();
                 int event = b.getInt("event");
                 switch (event) {
-                case EventHandler.MediaPlayerPlaying:
-                    Log.w(TAG, "VideoPlayerEventHandler MediaPlayerPlaying:" + event);
-                    mCurrentState = STATE_PREPARED;
-                    _onPrepared(VideoView.this);
-                    if (mSeekWhenPrepared > 0) {
-                        seekTo(mSeekWhenPrepared);
-                    }
-                    mCurrentState = STATE_PLAYING;
-                    mTargetState = STATE_PLAYING;
-                    break;
-                case EventHandler.MediaPlayerPaused:
-                    Log.w(TAG, "VideoPlayerEventHandler MediaPlayerPaused:" + event);
-                    break;
-                case EventHandler.MediaPlayerStopped:// 地址打开失败会返回此
-                    Log.w(TAG, "VideoPlayerEventHandler MediaPlayerStopped:" + event);
-                    break;
-                case EventHandler.MediaPlayerEndReached:
-                    Log.w(TAG, "VideoPlayerEventHandler MediaPlayerPlaying:" + event);
-                    mCurrentState = STATE_PLAYBACK_COMPLETED;
-                    mTargetState = STATE_PLAYBACK_COMPLETED;
-                    if (mOnCompletionListener != null) {
-                        mOnCompletionListener.onCompletion(player);
-                    }
-                    break;
-                case EventHandler.MediaPlayerVout:
-                    Log.w(TAG, "VideoPlayerEventHandler MediaPlayerVout:" + event);
-                    break;
-                case EventHandler.MediaPlayerPositionChanged:// 作用于进度条
-                    Log.w(TAG, "VideoPlayerEventHandler MediaPlayerPositionChanged:" + event);
-                    // don't spam the logs
-                    _onInfo(player, VLC_INFO_POSITION_CHANGED, 0, null);
-                    break;
-                case EventHandler.MediaPlayerEncounteredError:
-                    Log.w(TAG, "VideoPlayerEventHandler MediaPlayerEncounteredError:" + event);
-                    mCurrentState = STATE_ERROR;
-                    mTargetState = STATE_ERROR;
-                    if (mOnErrorListener != null) {
-                        mOnErrorListener.onError(player, VLC_ERROR, 0);
-                    }
-                    break;
-                case EventHandler.MediaPlayerBuffering:
-                    Log.w(TAG, "VideoPlayerEventHandler MediaPlayerBuffering:" + event);
-                    float buf = b.getFloat("data");
-                    if (mOnInfoListener != null) {
-                        if (buf < 100.0f) {
-                            _onInfo(player, MediaPlayer.MEDIA_INFO_BUFFERING_START, (int) buf, null);
-                        } else {
-                            _onInfo(player, MediaPlayer.MEDIA_INFO_BUFFERING_END, (int) buf, null);
+                    case EventHandler.MediaPlayerPlaying:
+                        Log.w(TAG, "VideoPlayerEventHandler MediaPlayerPlaying:" + event);
+                        mCurrentState = STATE_PREPARED;
+                        _onPrepared(VideoView.this);
+                        if (mSeekWhenPrepared > 0) {
+                            seekTo(mSeekWhenPrepared);
                         }
-                    }
-                    break;
-                default:
-                    Log.w(TAG, "VideoPlayerEventHandler other:" + event);
-                    break;
+                        mCurrentState = STATE_PLAYING;
+                        mTargetState = STATE_PLAYING;
+                        break;
+                    case EventHandler.MediaPlayerPaused:
+                        Log.w(TAG, "VideoPlayerEventHandler MediaPlayerPaused:" + event);
+                        break;
+                    case EventHandler.MediaPlayerStopped:// 地址打开失败会返回此
+                        Log.w(TAG, "VideoPlayerEventHandler MediaPlayerStopped:" + event);
+                        break;
+                    case EventHandler.MediaPlayerEndReached:
+                        Log.w(TAG, "VideoPlayerEventHandler MediaPlayerPlaying:" + event);
+                        mCurrentState = STATE_PLAYBACK_COMPLETED;
+                        mTargetState = STATE_PLAYBACK_COMPLETED;
+                        if (mOnCompletionListener != null) {
+                            mOnCompletionListener.onCompletion(player);
+                        }
+                        break;
+                    case EventHandler.MediaPlayerVout:
+                        Log.w(TAG, "VideoPlayerEventHandler MediaPlayerVout:" + event);
+                        break;
+                    case EventHandler.MediaPlayerPositionChanged:// 作用于进度条
+                        Log.w(TAG, "VideoPlayerEventHandler MediaPlayerPositionChanged:" + event);
+                        // don't spam the logs
+                        _onInfo(player, VLC_INFO_POSITION_CHANGED, 0, null);
+                        break;
+                    case EventHandler.MediaPlayerEncounteredError:
+                        Log.w(TAG, "VideoPlayerEventHandler MediaPlayerEncounteredError:" + event);
+                        mCurrentState = STATE_ERROR;
+                        mTargetState = STATE_ERROR;
+                        if (mOnErrorListener != null) {
+                            mOnErrorListener.onError(player, VLC_ERROR, 0);
+                        }
+                        break;
+                    case EventHandler.MediaPlayerBuffering:
+                        Log.w(TAG, "VideoPlayerEventHandler MediaPlayerBuffering:" + event);
+                        float buf = b.getFloat("data");
+                        if (mOnInfoListener != null) {
+                            if (buf < 100.0f) {
+                                _onInfo(player, MediaPlayer.MEDIA_INFO_BUFFERING_START, (int) buf, null);
+                            } else {
+                                _onInfo(player, MediaPlayer.MEDIA_INFO_BUFFERING_END, (int) buf, null);
+                            }
+                        }
+                        break;
+                    default:
+                        Log.w(TAG, "VideoPlayerEventHandler other:" + event);
+                        break;
                 }
             } catch (Throwable e) {
                 e.printStackTrace();
@@ -760,7 +837,7 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
 
     @Override
     public void setSurfaceSize(int width, int height, int visible_width, int visible_height, int sar_num,
-            int sar_den) {
+                               int sar_den) {
         Log.w(TAG, "setSurfaceSize " + width + "," + height + "," + visible_width + "," + visible_height
                 + "," + sar_num + "," + sar_den);
         if (width * height == 0 || visible_width * visible_height == 0) {
@@ -772,7 +849,7 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         Message msg = mHandler.obtainMessage(VLC_SURFACE_SIZE);
         Bundle data = new Bundle();
         data.putIntArray("params",
-                new int[] { width, height, visible_width, visible_height, sar_num, sar_den });
+                new int[]{width, height, visible_width, visible_height, sar_num, sar_den});
         msg.setData(data);
         mHandler.sendMessage(msg);
     }
@@ -829,7 +906,7 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
             Message msg = mHandler.obtainMessage(VLC_SURFACE_SIZE);
             Bundle data = new Bundle();
             data.putIntArray("params",
-                    new int[] { mVideoWidth, mVideoHeight, mVideoWidth, mVideoHeight, 1, 1 });
+                    new int[]{mVideoWidth, mVideoHeight, mVideoWidth, mVideoHeight, 1, 1});
             msg.setData(data);
             mHandler.sendMessage(msg);
         }
@@ -837,7 +914,7 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
 
     // 具体实现解码显示的缩放---------------------------------------------------------------------------------------------
     protected void changeSurfaceSize(int width, int height, int visible_width, int visible_height,
-            int sar_num, int sar_den) {
+                                     int sar_num, int sar_den) {
         if (mSurfaceHolder == null) {
             Log.e(TAG, "Invalid surface size");
             return;
@@ -872,28 +949,28 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         }
         double dar = (double) dw / (double) dh;
         switch (mCurrentSize) {
-        case SURFACE_BEST_FIT:
-            if (dar < ar)
-                dh = (int) (dw / ar);
-            else
-                dw = (int) (dh * ar);
-            break;
-        case SURFACE_FILL:
-            break;
-        case SURFACE_16_9:
-            ar = 16.0 / 9.0;
-            if (dar < ar)
-                dh = (int) (dw / ar);
-            else
-                dw = (int) (dh * ar);
-            break;
-        case SURFACE_4_3:
-            ar = 4.0 / 3.0;
-            if (dar < ar)
-                dh = (int) (dw / ar);
-            else
-                dw = (int) (dh * ar);
-            break;
+            case SURFACE_BEST_FIT:
+                if (dar < ar)
+                    dh = (int) (dw / ar);
+                else
+                    dw = (int) (dh * ar);
+                break;
+            case SURFACE_FILL:
+                break;
+            case SURFACE_16_9:
+                ar = 16.0 / 9.0;
+                if (dar < ar)
+                    dh = (int) (dw / ar);
+                else
+                    dw = (int) (dh * ar);
+                break;
+            case SURFACE_4_3:
+                ar = 4.0 / 3.0;
+                if (dar < ar)
+                    dh = (int) (dw / ar);
+                else
+                    dw = (int) (dh * ar);
+                break;
         }
         mSurfaceHolder.setFixedSize(width, height);
         LayoutParams lp = getLayoutParams();
@@ -913,21 +990,31 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
     }
 
     @Override
-    public void setSubtitlePath(Uri uri, long offset) {
-        if (uri != null) {
-            String scheme = uri.getScheme();
-            if ("http".equalsIgnoreCase(scheme) || "file".equalsIgnoreCase(scheme)) {
-                if (mSubTripe != null) {
-                    mSubTripe.relase();
-                    mSubTripe = null;
+    public void setSubTrack(SubTrack subTrack, long offset) {
+        switch (subTrack.from) {
+            case Local:
+            case Internet:
+                if (mDecodeType == SOFT_DECODE) {
+                    if (mLibVLC != null) {
+                        mLibVLC.setSpuTrack(0);
+                    }
                 }
-                mSubTripe = new SubTripe(this, uri);
-                mSubTripe.setTimeOffset(offset);
-            } else {
-                Log.e(TAG, "the srt uri is Illega");
-                // throw new
-                // IllegalArgumentException("Url must be http and file");
-            }
+                if (subTrack.path != null) {
+                    if (mSubTripe != null) {
+                        mSubTripe.relase();
+                        mSubTripe = null;
+                    }
+                    mSubTripe = new SubTripe(this, subTrack.path);
+                    mSubTripe.setTimeOffset(offset);
+                }
+                break;
+            case Internal:
+                if (mDecodeType == SOFT_DECODE) {
+                    if (mLibVLC != null) {
+                        mLibVLC.setSpuTrack(subTrack.trackId);
+                    }
+                }
+                break;
         }
     }
 

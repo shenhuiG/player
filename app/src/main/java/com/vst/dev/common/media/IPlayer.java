@@ -12,6 +12,12 @@ public interface IPlayer {
     public static final int SURFACE_4_3 = 3;
     public static final int SURFACE_FILL = 1;
 
+    public static final int NO_CYCLE = 0;
+    public static final int SINGLE_CYCLE = 1;
+    public static final int ALL_CYCLE = 2;
+    public static final int RANDOM_CYCLE = 3;
+    public static final int QUEUE_CYCLE = 4;
+
     public static final int DEFINITION_LD = 0;// 流畅
     public static final int DEFINITION_SD = 1;// 标清
     public static final int DEFINITION_HD = 2;// 高清
@@ -26,6 +32,7 @@ public interface IPlayer {
     public static final int VLC_ERROR = 1001;
     public static final int VLC_INFO_POSITION_CHANGED = 1004;
     public static final int MEDIA_INFO_TIMEOUT = 0xffff;
+
 
     public void start();
 
@@ -63,9 +70,15 @@ public interface IPlayer {
 
     public void setOnPreparedListener(OnPreparedListener listener);
 
-    public void setSubtitlePath(Uri uri, long offset);
-
     public void setSubtitleOffset(long offset);
+
+    public void setSubTrack(SubTrack subTrack, long offset);
+
+    public void setAudioTrack(AudioTrack audioTrack);
+
+    public SubTrack[] getInternalSubTitle();
+
+    public AudioTrack[] getInternalAudioTrack();
 
     public void setOnTimedTextChangedListener(OnTimedTextChangedListener listener);
 

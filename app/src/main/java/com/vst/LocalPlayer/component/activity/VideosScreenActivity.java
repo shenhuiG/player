@@ -53,7 +53,7 @@ public class VideosScreenActivity extends Activity implements MediaStoreNotifier
         updateUI();
         notifier = new MediaStoreNotifier(ctx.getContentResolver(), this);
         notifier.registQueryContentUri(MediaStore.MediaBase.CONTENT_URI, null,
-                MediaStore.MediaBase.FIELD_VALID + "=?", new String[]{"1"}, null);
+                MediaStore.MediaBase.FIELD_VALID + "=? AND " + MediaStore.MediaBase.FIELD_HIDE + "=?", new String[]{"1", "0"}, null);
         fetcher = new ImageFetcher(ctx);
         fetcher.setImageCache(new ImageCache(ctx, new ImageCache.ImageCacheParams(".cache")));
     }
@@ -92,17 +92,27 @@ public class VideosScreenActivity extends Activity implements MediaStoreNotifier
                 MediaBaseModel info = (MediaBaseModel) parent.getAdapter().getItem(position);
                 String path = info.devicePath + info.relativePath;
                 if (new File(path).exists()) {
-                    Utils.playMediaFile(ctx, new File(path), info.id);
+                    if (Utils.isBDMV(new File(path))) {
+                        String target = Utils.findBDMVMediaPath(new File(path));
+                        System.out.println("target" + target);
+                        if (target != null) {
+                            Utils.playMediaFile(ctx, new File(target), -1);
+                        } else {
+                            Toast.makeText(ctx, "该影片不存在 路径：" + "盘:" + info.relativePath, Toast.LENGTH_LONG).show();
+                        }
+                    } else {
+                        Utils.playMediaFile(ctx, new File(path), info.id);
+                    }
                 } else {
                     Toast.makeText(ctx, "该影片不存在 路径：" + "盘:" + info.relativePath, Toast.LENGTH_LONG).show();
                 }
             }
         });
         mListView.setNumColumns(5);
-        mListView.setColumnWidth(250);
+        mListView.setColumnWidth(com.vst.dev.common.util.Utils.getFitSize(ctx, 150));
         mListView.setStretchMode(GridView.STRETCH_SPACING_UNIFORM);
-        mListView.setHorizontalSpacing(com.vst.dev.common.util.Utils.getFitSize(ctx, 30));
-        mListView.setVerticalSpacing(com.vst.dev.common.util.Utils.getFitSize(ctx, 35));
+        mListView.setHorizontalSpacing(com.vst.dev.common.util.Utils.getFitSize(ctx, 20));
+        mListView.setVerticalSpacing(com.vst.dev.common.util.Utils.getFitSize(ctx, 20));
         root.addView(mListView);
         return root;
     }
@@ -129,7 +139,7 @@ public class VideosScreenActivity extends Activity implements MediaStoreNotifier
                 String name = cursor.getString(cursor.getColumnIndex(MediaStore.MediaBase.FIELD_NAME));
                 String path = cursor.getString(cursor.getColumnIndex(MediaStore.MediaBase.FIELD_RELATIVE_PATH));
                 long deviceId = cursor.getLong(cursor.getColumnIndex(MediaStore.MediaBase.FIELD_DEVICE_ID));
-                long _id = cursor.getLong(cursor.getColumnIndex(MediaStore.MediaBase._ID));
+                long _id = cursor.getLong(cursor.getColumnIndex(/*MediaStore.MediaBase.TABLE_NAME + "." +*/ "_id"));
                 String title = cursor.getString(cursor.getColumnIndex(MediaStore.MediaInfo.FIELD_TITLE));
                 String poster = cursor.getString(cursor.getColumnIndex(MediaStore.MediaInfo.FIELD_POSTER));
                 String devicePath = "";
@@ -183,8 +193,8 @@ public class VideosScreenActivity extends Activity implements MediaStoreNotifier
                 text.setSingleLine(true);
                 text.setEllipsize(TextUtils.TruncateAt.MARQUEE);
                 text.setMarqueeRepeatLimit(Integer.MAX_VALUE);
-                layout.addView(image, -1, 300);
-                layout.addView(text, -1, 60);
+                layout.addView(image, -1, com.vst.dev.common.util.Utils.getFitSize(ctx, 250));
+                layout.addView(text, -1, com.vst.dev.common.util.Utils.getFitSize(ctx, 40));
                 convertView = layout;
                 holder.poster = image;
                 holder.name = text;

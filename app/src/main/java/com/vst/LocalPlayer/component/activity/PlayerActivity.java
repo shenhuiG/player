@@ -75,10 +75,11 @@ public class PlayerActivity extends FragmentActivity {
             args = new Bundle();
         }
         args.putString("uri", url);
-        addNomalControl(args);
+        addNormalControl(args);
     }
 
-    private void addNomalControl(Bundle args) {
+    private void addNormalControl(Bundle args) {
+        System.out.println("addNormalControl " + args.getLong("_id", -1));
         mMediaControl = (PlayFragment) mFM.findFragmentByTag(NORMAL_TAG);
         if (mMediaControl == null) {
             player.resetVideo();

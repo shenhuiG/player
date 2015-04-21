@@ -55,10 +55,11 @@ public class MediaStoreDBHelper extends SQLiteOpenHelper {
             + MediaStore.MediaBase.FIELD_WIDTH + " integer not null,"
             + MediaStore.MediaBase.FIELD_HEIGHT + " integer not null,"
             + MediaStore.MediaBase.FIELD_META_TITLE + " text ,"
-            + MediaStore.MediaBase.FIELD_MEDIA_INFO_SOURCEID + " text ,"
+            + MediaStore.MediaBase.FIELD_MEDIA_INFO_ID + " long ,"
             + MediaStore.MediaBase.FIELD_VALID + " boolean not null,"
             + MediaStore.MediaBase.FIELD_RELATIVE_PATH + " text not null,"
-            + MediaStore.MediaBase.FIELD_DATE + " long not null"
+            + MediaStore.MediaBase.FIELD_DATE + " long not null ,"
+            + MediaStore.MediaBase.FIELD_HIDE + " boolean not null default 0 "
             + ")";
 
     static final String CREATE_MEDIA_RECORD_TABLE_V1 = "CREATE TABLE "
@@ -75,7 +76,7 @@ public class MediaStoreDBHelper extends SQLiteOpenHelper {
     static final String CREATE_MEDIA_INFO_TABLE_V1 = "CREATE TABLE "
             + MediaStore.MediaInfo.TABLE_NAME
             + "("
-            + MediaStore.MediaInfo._ID + " integer primary key autoincrement not null, "
+            + MediaStore.MediaInfo.FIELD_ID + " integer primary key autoincrement not null, "
             + MediaStore.MediaInfo.FIELD_TITLE + " text ,"
             + MediaStore.MediaInfo.FIELD_YEAR + " text ,"
             + MediaStore.MediaInfo.FIELD_DIRECTOR + " text ,"

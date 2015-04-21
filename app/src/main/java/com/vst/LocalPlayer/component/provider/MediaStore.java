@@ -47,13 +47,15 @@ public final class MediaStore {
         public static final String FIELD_DATE = "date";
         public static final String FIELD_WIDTH = "width";
         public static final String FIELD_HEIGHT = "height";
-        public static final String FIELD_MEDIA_INFO_SOURCEID = "mediaInfoSourceId";
+        public static final String FIELD_MEDIA_INFO_ID = "mediaInfoId";
+        public static final String FIELD_HIDE = "hide";
         public static final Uri CONTENT_URI = getContentUri(TABLE_NAME);
     }
 
 
-    public interface MediaInfo extends BaseColumns {
+    public interface MediaInfo {
         public static final String TABLE_NAME = "MediaInfo";
+        public static final String FIELD_ID = "mediaInfo_id";
         public static final String FIELD_TITLE = "title";           //media  Name
         public static final String FIELD_YEAR = "year";
         public static final String FIELD_DIRECTOR = "director";
