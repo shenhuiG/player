@@ -101,7 +101,7 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
                 }
                 switch (category) {
                     case Dir:
-                        selection = -1;
+                        selection = 0;
                         updateDate(file, null);
                         updateUI();
                         break;
@@ -115,21 +115,23 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
                         Utils.playAudioFile(ctx, file);
                         break;
                     case Video:
+                    case BDMV:
                         String relativePath = file.getAbsolutePath().replace(mDevicePath, "");
                         long mediaId = -1;
+                        long deviceId = -1;
                         Cursor c = ctx.getContentResolver().query(MediaStore.MediaBase.CONTENT_URI, null,
                                 MediaStore.MediaBase.FIELD_RELATIVE_PATH + "=?", new String[]{relativePath}, null);
                         if (c.moveToFirst()) {
                             mediaId = c.getLong(c.getColumnIndex(MediaStore.MediaBase._ID));
+                            deviceId = c.getLong(c.getColumnIndex(MediaStore.MediaBase.FIELD_DEVICE_ID));
                         }
                         c.close();
-                        Utils.playMediaFile(ctx, file, mediaId);
-                        break;
-                    case BDMV:
-                        String target = Utils.findBDMVMediaPath(file);
+                        File target = Utils.findBDMVMediaFile(file);
                         System.out.println("target" + target);
                         if (target != null) {
-                            Utils.playMediaFile(ctx, new File(target), -1);
+                            Utils.playMediaFile(ctx, target, mediaId, deviceId, mDevicePath);
+                        } else {
+                            Utils.playMediaFile(ctx, file, mediaId, deviceId, mDevicePath);
                         }
                         break;
                     default:

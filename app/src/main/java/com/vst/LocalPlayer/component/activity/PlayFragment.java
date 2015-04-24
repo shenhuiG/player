@@ -20,6 +20,7 @@ import com.vst.LocalPlayer.LocalSeekController;
 import com.vst.LocalPlayer.Utils;
 import com.vst.LocalPlayer.component.provider.MediaStore;
 import com.vst.LocalPlayer.model.MediaBaseModel;
+import com.vst.dev.common.media.AudioTrack;
 import com.vst.dev.common.media.SubTrack;
 import com.vst.LocalPlayer.model.SubtripApi;
 import com.vst.dev.common.media.IPlayer;
@@ -27,9 +28,15 @@ import com.vst.dev.common.media.IPlayer;
 import net.myvst.v2.extra.media.MediaControlFragment;
 import net.myvst.v2.extra.media.controller.MediaControllerManager;
 
+import java.io.File;
+import java.io.FileFilter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Random;
+
 public class PlayFragment extends MediaControlFragment implements IPlayer.OnCompletionListener,
         IPlayer.OnErrorListener, IPlayer.OnPreparedListener, MediaControllerManager.KeyEventHandler,
-        IPlayer.OnInfoListener, LocalSeekController.ControlCallback, IPlayer.OnTimedTextChangedListener {
+        IPlayer.OnInfoListener, LocalSeekController.ControlCallback, IPlayer.OnTimedTextChangedListener, LocalMenuView.Control {
     private static final int HANDLE_ERROR = 0x0002;
     private static final int FINAL_PLAY = 0x0001;
     private Context mContext = null;
@@ -38,12 +45,107 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     private int mDecodeType = IPlayer.HARD_DECODE;
     private String mMediaPath = null;
     private long mediaId = -1;
+    private long deviceId = -1;
+    private String devicePath = null;
     private Handler mHandler;
     private LocalSeekController mSeekController;
     private int mCycleMode = IPlayer.NO_CYCLE;
 
+    @Override
     public void setCycleMode(int i) {
         mCycleMode = i;
+    }
+
+    @Override
+    public int getCycleMode() {
+        return mCycleMode;
+    }
+
+    @Override
+    public void setDecodeType(int i) {
+        mDecodeType = i;
+        if (mPlayer != null) {
+            mPlayer.setDecodeType(mDecodeType);
+        }
+    }
+
+    @Override
+    public int getDecodeType() {
+        return mDecodeType;
+    }
+
+    @Override
+    public AudioTrack[] getAudioTracks() {
+        if (mPlayer != null) {
+            return mPlayer.getAudioTracks();
+        }
+        return null;
+    }
+
+    @Override
+    public int getAudioTrackId() {
+        if (mPlayer != null) {
+            return mPlayer.getAudioTrackId();
+        }
+        return -1;
+    }
+
+    @Override
+    public void setAudioTrack(AudioTrack track) {
+        if (mPlayer != null) {
+            mPlayer.setAudioTrack(track);
+        }
+    }
+
+    public SubTrack[] getSubTracks() {
+        SubTrack[] localSubs = SubtripApi.getLocalSubTitle(mMediaPath);
+        if (localSubs != null && localSubs.length == 0) {
+            localSubs = null;
+        }
+        Log.e("", "localSubs  >" + localSubs);
+        SubTrack[] internalSubs = null;
+        if (mPlayer != null) {
+            internalSubs = mPlayer.getInternalSubTitle();
+            if (internalSubs != null && internalSubs.length == 0) {
+                internalSubs = null;
+            }
+            Log.e("", "internalSubs  >" + internalSubs);
+        }
+        if (localSubs != null && internalSubs == null) {
+            return localSubs;
+        } else if (localSubs == null && internalSubs != null) {
+            return internalSubs;
+        } else if (localSubs != null && internalSubs != null) {
+            SubTrack[] tracks = new SubTrack[localSubs.length + internalSubs.length];
+            for (int i = 0; i < localSubs.length; i++) {
+                tracks[i] = localSubs[i];
+            }
+            for (int i = 0; i < internalSubs.length; i++) {
+                tracks[i + localSubs.length] = internalSubs[i];
+            }
+            return tracks;
+        }
+        return null;
+    }
+
+    public SubTrack getSubTrack() {
+        if (mPlayer != null) {
+            SubTrack track = mPlayer.getSubTrack();
+            if (track != null) {
+                return track;
+            }
+        }
+        return new SubTrack(SubTrack.SubTrackType.NONE);
+    }
+
+    public void setSubTrack(SubTrack track) {
+        if (mPlayer != null) {
+            if (track.from == SubTrack.SubTrackType.NONE) {
+                mPlayer.setSubTrack(null, 0);
+            } else {
+                mPlayer.setSubTrack(track, 0);
+            }
+        }
     }
 
     public static PlayFragment newInstance(Bundle args) {
@@ -59,6 +161,8 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
         if (args != null && (mediaUri = args.getString("uri")) != null) {
             if (!mediaUri.equals(mMediaPath)) {
                 mediaId = args.getLong("_id", -1);
+                deviceId = args.getLong("deviceId", -1);
+                devicePath = args.getString("devicePath");
                 mSeekWhenPrepared = getPositionFromRecord(mediaId);
                 mPlayer.resetVideo();
                 if (Uri.parse(mediaUri).getScheme().equalsIgnoreCase("file")) {
@@ -125,7 +229,15 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
 
     @Override
     public void onPause() {
-        insertRecord(mediaId, mPlayer.getPosition(), mPlayer.getDuration());
+        long p = mPlayer.getPosition();
+        long d = mPlayer.getDuration();
+        if (p > d - 10000) {
+            p = d - 10000;
+        }
+        if (p < 0) {
+            p = 0;
+        }
+        insertRecord(mediaId, p, d);
         super.onPause();
     }
 
@@ -158,6 +270,7 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
             mSeekController.setControl(this);
             mControllerManager.addController(LocalSeekController.SEEK_CONTROLLER, mSeekController, null, null);
             LocalMenuView menuView = new LocalMenuView(mContext);
+            menuView.setControl(this);
             mControllerManager.addController(LocalMenuView.TAG, menuView, null, null);
         }
     }
@@ -245,14 +358,6 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     public void onPrepared(IPlayer mp) {
         mPlayer.changeScale(mScaleSize);
         mPlayer.start();
-        SubTrack[] internalSubs = mPlayer.getInternalSubTitle();
-        Log.e("", "internalSubs  >" + internalSubs);
-        SubTrack[] localSubs = SubtripApi.getLocalSubTitle(mMediaPath);
-        Log.e("", "localSubs  >" + localSubs);
-        //Arrays.asList(internalSubs);
-        if (localSubs != null) {
-            mPlayer.setSubTrack(localSubs[0], 0);
-        }
     }
 
     @Override
@@ -267,6 +372,7 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
 
     @Override
     public void onCompletion(IPlayer mp) {
+        System.out.println("onCompletion ???>" + mCycleMode);
         switch (mCycleMode) {
             case IPlayer.NO_CYCLE:
                 if (getActivity() != null) {
@@ -274,12 +380,108 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
                 }
                 break;
             case IPlayer.SINGLE_CYCLE:
+                mPlayer.resetVideo();
+                mHandler.sendMessage(mHandler.obtainMessage(FINAL_PLAY, mMediaPath));
                 break;
             case IPlayer.ALL_CYCLE:
+            case IPlayer.RANDOM_CYCLE:
+                //get all video
+                if (mAllArray == null) {
+                    mAllArray = getAllVideoList(deviceId, devicePath);
+                    if (mAllArray == null) {
+                        return;
+                    }
+                }
+                //get index
+                int size = mAllArray.size();
+                if (mCycleMode == IPlayer.RANDOM_CYCLE) {
+                    Random rand = new Random(cycleIndex);
+                    cycleIndex = rand.nextInt(size);
+                } else {
+                    if (cycleIndex == -1) {
+                        if (mediaId >= 0) {
+                            for (int i = 0; i < size; i++) {
+                                MediaBaseModel media = mAllArray.get(i);
+                                if (media.id == mediaId) {
+                                    cycleIndex = i;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    cycleIndex = (cycleIndex + 1) % size;
+                }
+                System.out.println("mMediaPath=" + mMediaPath + ",mediaId=" + mediaId);
+                MediaBaseModel media = mAllArray.get(cycleIndex);
+                mMediaPath = media.devicePath + media.relativePath;
+                mediaId = media.id;
+                System.out.println("mMediaPath=" + mMediaPath + ",mediaId=" + mediaId);
+                mPlayer.resetVideo();
+                mHandler.sendMessage(mHandler.obtainMessage(FINAL_PLAY, mMediaPath));
                 break;
             case IPlayer.QUEUE_CYCLE:
+                //dir video cycle
+                System.out.println("-----------------------");
+                System.out.println("mMediaPath=" + mMediaPath + ",mediaId=" + mediaId);
+                ArrayList<String> list = getQueueVideoList(new File(mMediaPath.replace("file://", "")).getParentFile());
+                System.out.println(list);
+                if (list != null && !list.isEmpty()) {
+                    int index = list.indexOf(mMediaPath);
+                    index = (index + 1) % list.size();
+                    System.out.println("mMediaPath=" + mMediaPath + ",mediaId=" + mediaId);
+                    mMediaPath = list.get(index);
+                    System.out.println("mMediaPath=" + mMediaPath + ",mediaId=" + mediaId);
+                    mediaId = -1;
+                    mPlayer.resetVideo();
+                    mHandler.sendMessage(mHandler.obtainMessage(FINAL_PLAY, mMediaPath));
+                }
+                System.out.println("-----------------------");
                 break;
+
         }
+    }
+
+    private ArrayList<MediaBaseModel> mAllArray = null;
+    private int cycleIndex = -1;
+
+    private ArrayList<MediaBaseModel> getAllVideoList(long deviceid, String devicepath) {
+        ArrayList<MediaBaseModel> array = null;
+        Cursor cursor = mContext.getContentResolver().query(MediaStore.MediaBase.CONTENT_URI, null,
+                MediaStore.MediaBase.FIELD_DEVICE_ID + "=? AND " + MediaStore.MediaBase.FIELD_HIDE + "=?", new String[]{deviceid + "", "0"}, null);
+        if (cursor != null) {
+            if (cursor.getCount() > 0) {
+                array = new ArrayList<MediaBaseModel>();
+                while (cursor.moveToNext()) {
+                    String name = cursor.getString(cursor.getColumnIndex(MediaStore.MediaBase.FIELD_NAME));
+                    String path = cursor.getString(cursor.getColumnIndex(MediaStore.MediaBase.FIELD_RELATIVE_PATH));
+                    long _id = cursor.getLong(cursor.getColumnIndex("_id"));
+                    String title = cursor.getString(cursor.getColumnIndex(MediaStore.MediaInfo.FIELD_TITLE));
+                    String poster = cursor.getString(cursor.getColumnIndex(MediaStore.MediaInfo.FIELD_POSTER));
+                    array.add(new MediaBaseModel(_id, path, name, title, poster, deviceid, devicepath));
+                }
+            }
+            cursor.close();
+        }
+        return array;
+    }
+
+    private ArrayList<String> getQueueVideoList(File dir) {
+        System.out.println(dir);
+        File[] files = dir.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File file) {
+                Utils.FileCategory fileCategory = Utils.getFileCategory(file);
+                return fileCategory == Utils.FileCategory.BDMV || fileCategory == Utils.FileCategory.Video;
+            }
+        });
+        if (files != null && files.length > 0) {
+            ArrayList<String> list = new ArrayList<String>();
+            for (File f : files) {
+                list.add(f.getAbsolutePath());
+            }
+            return list;
+        }
+        return null;
     }
 
     public boolean isPlaying() {

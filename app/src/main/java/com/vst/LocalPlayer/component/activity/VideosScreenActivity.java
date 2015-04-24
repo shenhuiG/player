@@ -92,16 +92,12 @@ public class VideosScreenActivity extends Activity implements MediaStoreNotifier
                 MediaBaseModel info = (MediaBaseModel) parent.getAdapter().getItem(position);
                 String path = info.devicePath + info.relativePath;
                 if (new File(path).exists()) {
-                    if (Utils.isBDMV(new File(path))) {
-                        String target = Utils.findBDMVMediaPath(new File(path));
-                        System.out.println("target" + target);
-                        if (target != null) {
-                            Utils.playMediaFile(ctx, new File(target), -1);
-                        } else {
-                            Toast.makeText(ctx, "该影片不存在 路径：" + "盘:" + info.relativePath, Toast.LENGTH_LONG).show();
-                        }
+                    File target = Utils.findBDMVMediaFile(new File(path));
+                    System.out.println("target" + target);
+                    if (target != null) {
+                        Utils.playMediaFile(ctx, target, info.id, info.deviceId, info.devicePath);
                     } else {
-                        Utils.playMediaFile(ctx, new File(path), info.id);
+                        Utils.playMediaFile(ctx, new File(path), info.id, info.deviceId, info.devicePath);
                     }
                 } else {
                     Toast.makeText(ctx, "该影片不存在 路径：" + "盘:" + info.relativePath, Toast.LENGTH_LONG).show();
@@ -139,7 +135,7 @@ public class VideosScreenActivity extends Activity implements MediaStoreNotifier
                 String name = cursor.getString(cursor.getColumnIndex(MediaStore.MediaBase.FIELD_NAME));
                 String path = cursor.getString(cursor.getColumnIndex(MediaStore.MediaBase.FIELD_RELATIVE_PATH));
                 long deviceId = cursor.getLong(cursor.getColumnIndex(MediaStore.MediaBase.FIELD_DEVICE_ID));
-                long _id = cursor.getLong(cursor.getColumnIndex(/*MediaStore.MediaBase.TABLE_NAME + "." +*/ "_id"));
+                long _id = cursor.getLong(cursor.getColumnIndex("_id"));
                 String title = cursor.getString(cursor.getColumnIndex(MediaStore.MediaInfo.FIELD_TITLE));
                 String poster = cursor.getString(cursor.getColumnIndex(MediaStore.MediaInfo.FIELD_POSTER));
                 String devicePath = "";
@@ -154,7 +150,7 @@ public class VideosScreenActivity extends Activity implements MediaStoreNotifier
                     }
                     deviceC.close();
                 }
-                mArray.add(new MediaBaseModel(_id, path, name, title, poster, devicePath));
+                mArray.add(new MediaBaseModel(_id, path, name, title, poster, deviceId, devicePath));
             }
             updateUI();
         }

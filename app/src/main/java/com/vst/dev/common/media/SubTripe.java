@@ -15,7 +15,6 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 
 import android.annotation.SuppressLint;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
 
@@ -24,17 +23,19 @@ import com.vst.dev.common.util.Utils;
 public class SubTripe {
 
     private IPlayer mPlayer;
-    private ArrayList<Subtitle> mSubtitles = new ArrayList<SubTripe.Subtitle>();
+    private ArrayList<SubItem> mSubtitles = new ArrayList<SubItem>();
     private long mOffset = 0;
-    private Subtitle mSubTitle = null;
+    private SubItem mSubTitle = null;
+    private boolean mSubValid = false;
 
     public SubTripe(IPlayer player, final String path) {
         super();
         mPlayer = player;
+        mSubValid = true;
         new Thread(new Runnable() {
             @Override
             public void run() {
-                ArrayList<Subtitle> list = parseSubtitles(path);
+                ArrayList<SubItem> list = parseSubtitles(path);
                 if (list != null && list.size() > 0) {
                     mSubtitles = list;
                     mHandler.sendEmptyMessage(0);
@@ -43,11 +44,11 @@ public class SubTripe {
         }).start();
     }
 
-    private ArrayList<Subtitle> parseSubtitles(String path) {
+    private ArrayList<SubItem> parseSubtitles(String path) {
         BufferedReader reader = null;
         InputStream in = null;
         HttpURLConnection conn = null;
-        ArrayList<Subtitle> subtitleList = new ArrayList<SubTripe.Subtitle>();
+        ArrayList<SubItem> subtitleList = new ArrayList<SubItem>();
         try {
             if (path.startsWith("http://")) {
                 conn = (HttpURLConnection) new URL(path).openConnection();
@@ -65,7 +66,7 @@ public class SubTripe {
             bufferedInputStream.reset();
             reader = new BufferedReader(new InputStreamReader(bufferedInputStream, charset));
             String line;
-            Subtitle sub = null;
+            SubItem sub = null;
             // 正则表达式，用于匹配类似于“01:54:16,332 --> 01:54:18,163”的时间描述字符行
             final String regex = "\\d\\d:\\d\\d:\\d\\d,\\d\\d\\d --> \\d\\d:\\d\\d:\\d\\d,\\d\\d\\d";
             while ((line = reader.readLine()) != null) {
@@ -76,18 +77,18 @@ public class SubTripe {
                     sub = null;
                     continue;
                 }
-                if (Pattern.matches(regex, line)) { // 使用静态方法进行正则式的匹配。
+                if (Pattern.matches(regex, line)) {
                     String begin = line.substring(0, 12);
                     String end = line.substring(17, 29);
                     long beginTime = formatMils(begin);
                     long endTime = formatMils(end);
                     if (beginTime >= 0 && endTime >= 0 && endTime > beginTime) {
-                        sub = new Subtitle(beginTime, endTime);
+                        sub = new SubItem(beginTime, endTime);
                     }
                     continue;
                 }
                 if (sub != null) {
-                    line = line.replaceAll("<.*>", "").trim();
+                    line = line.replaceAll("<.*>", "").replaceAll("\\{.*\\}", "").trim();
                     if (sub.srtBody != null) {
                         sub.srtBody = sub.srtBody + "\n" + line;
                     } else {
@@ -143,10 +144,10 @@ public class SubTripe {
         return -1;
     }
 
-    private Subtitle getCurrentSubtitle(long time) {
+    private SubItem getCurrentSubtitle(long time) {
         time = time + mOffset;
         for (int i = 0; i < mSubtitles.size(); i++) {
-            Subtitle sub = mSubtitles.get(i);
+            SubItem sub = mSubtitles.get(i);
             if (sub.beginTime <= time && sub.endTime >= time) {
                 return sub;
             }
@@ -159,10 +160,13 @@ public class SubTripe {
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
+            if (!mSubValid) {
+                return;
+            }
             if (mPlayer != null && mSubtitles != null) {
                 long position = mPlayer.getPosition();
                 if (position > 0) {
-                    Subtitle subtitle = getCurrentSubtitle(position);
+                    SubItem subtitle = getCurrentSubtitle(position);
                     if (subtitle != null) {
                         if (!subtitle.equals(mSubTitle)) {
                             ((VideoView) mPlayer).onTimedTextChanged(subtitle);
@@ -184,13 +188,18 @@ public class SubTripe {
         mOffset = offset;
     }
 
-    public void relase() {
+    public void release() {
+        System.out.println("mSubTripe  relase");
+        if (mPlayer != null) {
+            ((VideoView) mPlayer).onTimedTextChanged(null);
+        }
         mSubtitles.clear();
         mOffset = 0;
         mHandler.removeCallbacksAndMessages(null);
+        mSubValid = false;
     }
 
-    class Subtitle {
+    class SubItem {
         public long beginTime;// 开始时间
         public long endTime;// 结束时间
         public String srtBody;// 字幕体
@@ -200,7 +209,7 @@ public class SubTripe {
             return "Subtitle [beginTime=" + beginTime + ", endTime=" + endTime + ", srtBody=" + srtBody + "]";
         }
 
-        public Subtitle(long beginTime, long endTime) {
+        public SubItem(long beginTime, long endTime) {
             super();
             this.beginTime = beginTime;
             this.endTime = endTime;

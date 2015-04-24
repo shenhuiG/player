@@ -58,15 +58,17 @@ public class Utils {
         return result;
     }
 
-    public static void playMediaFile(Context ctx, File mediaFile, long id) {
+    public static void playMediaFile(Context ctx, File mediaFile, long id, long deviceId, String devicePath) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(Uri.fromFile(mediaFile), "video/*");
+        intent.setDataAndType(Uri.parse("file://"+mediaFile.getAbsolutePath()), "video/*");
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.setPackage(ctx.getPackageName());
         intent.setClass(ctx, PlayerActivity.class);
         if (id >= 0) {
             Bundle args = new Bundle();
             args.putLong("_id", id);
+            args.putLong("deviceId", deviceId);
+            args.putString("devicePath", devicePath);
             intent.putExtras(args);
         }
         ctx.startActivity(intent);
@@ -96,31 +98,33 @@ public class Utils {
     }
 
 
-    public static String findBDMVMediaPath(File bdmv) {
-        File streamDir = new File(bdmv, "BDMV/STREAM");
-        File[] fs = streamDir.listFiles(new FilenameFilter() {
-            @Override
-            public boolean accept(File file, String s) {
-                return s.endsWith(".m2ts");
-            }
-        });
-        if (fs != null && fs.length > 0) {
-            File target = null;
-            long size = 0;
-            for (int i = 0; i < fs.length; i++) {
-                File f = fs[i];
-                if (target == null) {
-                    target = f;
-                    size = f.getTotalSpace();
-                } else {
-                    long ss = f.getTotalSpace();
-                    if (ss > size) {
-                        size = ss;
+    public static File findBDMVMediaFile(File bdmv) {
+        if (isBDMV(bdmv)) {
+            File streamDir = new File(bdmv, "BDMV/STREAM");
+            File[] fs = streamDir.listFiles(new FilenameFilter() {
+                @Override
+                public boolean accept(File file, String s) {
+                    return s.endsWith(".m2ts");
+                }
+            });
+            if (fs != null && fs.length > 0) {
+                File target = null;
+                long size = 0;
+                for (int i = 0; i < fs.length; i++) {
+                    File f = fs[i];
+                    if (target == null) {
                         target = f;
+                        size = f.getTotalSpace();
+                    } else {
+                        long ss = f.getTotalSpace();
+                        if (ss > size) {
+                            size = ss;
+                            target = f;
+                        }
                     }
                 }
+                return target;
             }
-            return target.getAbsolutePath();
         }
         return null;
     }
@@ -153,7 +157,11 @@ public class Utils {
                 return FileCategory.Music;
             }
             if ("mp4".equalsIgnoreCase(ext) || "mkv".equalsIgnoreCase(ext) || "rmvb".equalsIgnoreCase(ext) || "avi".equalsIgnoreCase(ext)
-                    || "flv".equalsIgnoreCase(ext) || "ts".equalsIgnoreCase(ext) || "rmvb".equalsIgnoreCase(ext)) {
+                    || "flv".equalsIgnoreCase(ext) || "ts".equalsIgnoreCase(ext) || "rmvb".equalsIgnoreCase(ext)
+                    || "vob".equalsIgnoreCase(ext) || "webm".equalsIgnoreCase(ext) || "wmv".equalsIgnoreCase(ext)
+                    || "arm".equalsIgnoreCase(ext) || "ra".equalsIgnoreCase(ext) || "ac3".equalsIgnoreCase(ext)
+                    || "aac".equalsIgnoreCase(ext) || "wac".equalsIgnoreCase(ext) || "wav".equalsIgnoreCase(ext)
+                    ) {
                 return FileCategory.Video;
             }
             return FileCategory.Other;
@@ -190,12 +198,8 @@ public class Utils {
 
 
     public static boolean fileIsVideo(File file) {
-        String filename = file.getName();
-        if (file.isFile() && filename.endsWith(".ts") || filename.endsWith(".avi") || filename.endsWith(".mp4")
-                || filename.endsWith(".rmvb") || filename.endsWith(".mkv") || filename.endsWith(".flv")) {
-            return true;
-        }
-        return false;
+        FileCategory category = getFileCategory(file);
+        return category == FileCategory.BDMV || category == FileCategory.Video;
     }
 
 

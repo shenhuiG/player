@@ -164,6 +164,7 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
                     mLibVLC = LibVLC.getInstance();
                     mLibVLC.setOnPreparedListener(mPreparedListener4VLC);
                     mLibVLC.init(mContext);
+                    mLibVLC.setFontColor(LibVLC.VlcSpuColorEnum.Blue);
                 } catch (LibVlcException e) {
                     e.printStackTrace();
                 }
@@ -177,21 +178,23 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         }
     }
 
-    public AudioTrack[] getInternalAudioTrack() {
+    public AudioTrack[] getAudioTracks() {
         if (mDecodeType == SOFT_DECODE) {
             if (mLibVLC != null) {
                 TrackInfo[] trackInfos = mLibVLC.readTracksInfoInternal();
+                Log.e("getAudioTracks", "trackInfos=" + trackInfos);
                 if (trackInfos != null && trackInfos.length > 0) {
                     ArrayList<AudioTrack> list = new ArrayList<AudioTrack>();
                     for (int i = 0; i < trackInfos.length; i++) {
                         TrackInfo info = trackInfos[i];
+                        Log.e("getAudioTracks", "track=" + info.Type + "," + info.Id + "," + info.Language);
                         if (info.Type == TrackInfo.TYPE_AUDIO) {
-                            if (!TextUtils.isEmpty(info.Language)) {
-                                AudioTrack subTrack = new AudioTrack();
-                                subTrack.trackId = info.Id;
-                                subTrack.language = info.Language;
-                                list.add(subTrack);
-                            }
+                            //if (!TextUtils.isEmpty(info.Language)) {
+                            AudioTrack subTrack = new AudioTrack();
+                            subTrack.trackId = info.Id;
+                            subTrack.language = info.Id + "," + info.Language;
+                            list.add(subTrack);
+                            //}
                         }
                     }
                     if (list.size() > 0) {
@@ -209,6 +212,17 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
                 mLibVLC.setAudioTrack(audioTrack.trackId);
             }
         }
+    }
+
+    public int getAudioTrackId() {
+        if (mDecodeType == SOFT_DECODE) {
+            if (mLibVLC != null) {
+                Log.e("getAudioTracks", "getAudioTrackId=" + mLibVLC.getAudioTrack());
+                return mLibVLC.getAudioTrack();
+            }
+        } else {
+        }
+        return -1;
     }
 
     @Override
@@ -498,7 +512,6 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
             if (mDecodeType == SOFT_DECODE) {
                 return mLibVLC.getTime();
             } else {
-                Log.d("zip", "getPoxition = " + mMediaPlayer.getCurrentPosition());
                 return mMediaPlayer.getCurrentPosition();
             }
         }
@@ -746,6 +759,10 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         mSeekWhenPrepared = 0;
         mCurrentState = STATE_IDLE;
         mUri = null;
+        if (mSubTripe != null) {
+            mSubTripe.release();
+            mSubTripe = null;
+        }
         releaseOldMPInstance();
         setVisibility(View.INVISIBLE);
     }
@@ -989,32 +1006,54 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         return mCurrentSize;
     }
 
+    private SubTrack mSubTrack = null;
+
+    @Override
+    public SubTrack getSubTrack() {
+        return mSubTrack;
+    }
+
     @Override
     public void setSubTrack(SubTrack subTrack, long offset) {
-        switch (subTrack.from) {
-            case Local:
-            case Internet:
-                if (mDecodeType == SOFT_DECODE) {
-                    if (mLibVLC != null) {
-                        mLibVLC.setSpuTrack(0);
+        System.out.println("videoview  setSubTrack=" + subTrack);
+        mSubTrack = subTrack;
+        if (subTrack != null) {
+            switch (subTrack.from) {
+                case Local:
+                case Internet:
+                    if (mDecodeType == SOFT_DECODE) {
+                        if (mLibVLC != null) {
+                            mLibVLC.setSpuTrack(-1);
+                        }
                     }
-                }
-                if (subTrack.path != null) {
-                    if (mSubTripe != null) {
-                        mSubTripe.relase();
-                        mSubTripe = null;
+                    if (subTrack.path != null) {
+                        if (mSubTripe != null) {
+                            mSubTripe.release();
+                            mSubTripe = null;
+                        }
+                        mSubTripe = new SubTripe(this, subTrack.path);
+                        mSubTripe.setTimeOffset(offset);
                     }
-                    mSubTripe = new SubTripe(this, subTrack.path);
-                    mSubTripe.setTimeOffset(offset);
-                }
-                break;
-            case Internal:
-                if (mDecodeType == SOFT_DECODE) {
-                    if (mLibVLC != null) {
-                        mLibVLC.setSpuTrack(subTrack.trackId);
+                    break;
+                case Internal:
+                    if (mDecodeType == SOFT_DECODE) {
+                        if (mLibVLC != null) {
+                            mLibVLC.setSpuTrack(subTrack.trackId);
+                        }
                     }
+                    break;
+            }
+        } else {
+            System.out.println("videoview  setSubTrack=null");
+            if (mDecodeType == SOFT_DECODE) {
+                if (mLibVLC != null) {
+                    mLibVLC.setSpuTrack(-1);
                 }
-                break;
+            }
+            if (mSubTripe != null) {
+                mSubTripe.release();
+                mSubTripe = null;
+            }
         }
     }
 
@@ -1024,7 +1063,7 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         }
     }
 
-    void onTimedTextChanged(SubTripe.Subtitle subtitle) {
+    void onTimedTextChanged(SubTripe.SubItem subtitle) {
         if (mOnTimedTextChangedListener != null) {
             if (subtitle != null) {
                 mOnTimedTextChangedListener.onTimedTextChanger(subtitle.srtBody, subtitle.beginTime,

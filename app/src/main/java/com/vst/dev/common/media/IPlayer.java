@@ -74,11 +74,15 @@ public interface IPlayer {
 
     public void setSubTrack(SubTrack subTrack, long offset);
 
+    public SubTrack getSubTrack();
+
     public void setAudioTrack(AudioTrack audioTrack);
 
     public SubTrack[] getInternalSubTitle();
 
-    public AudioTrack[] getInternalAudioTrack();
+    public AudioTrack[] getAudioTracks();
+
+    public int getAudioTrackId();
 
     public void setOnTimedTextChangedListener(OnTimedTextChangedListener listener);
 

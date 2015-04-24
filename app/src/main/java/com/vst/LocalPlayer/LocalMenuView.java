@@ -15,12 +15,41 @@ import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.ViewFlipper;
+import com.vst.dev.common.media.AudioTrack;
+import com.vst.dev.common.media.IPlayer;
+import com.vst.dev.common.media.SubTrack;
 
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.Stack;
 
 public class LocalMenuView extends LinearLayout {
+
+    public interface Control {
+        //public AudioTrack[] getAudioTracks();
+
+        //public int getAudioTrackId();
+
+        public void setCycleMode(int i);
+
+        public int getCycleMode();
+
+        public void setDecodeType(int i);
+
+        public int getDecodeType();
+
+        public AudioTrack[] getAudioTracks();
+
+        public int getAudioTrackId();
+
+        public void setAudioTrack(AudioTrack track);
+
+        public SubTrack[] getSubTracks();
+
+        public SubTrack getSubTrack();
+
+        public void setSubTrack(SubTrack track);
+    }
 
 
     public static final String THRD_SETTING = "3D设定";
@@ -29,13 +58,15 @@ public class LocalMenuView extends LinearLayout {
     public static final String THRD_ITEM_3DUD = "3D上下格式";
     public static final String THRD_ITEM_3D = "3D 播放";
     public static final String LOOPER_SETTING = "循环设定";
-    public static final String LOOPER_ALL = "顺序播放";
+    public static final String LOOPER_ALL = "全部循环";
     public static final String LOOPER_SINGLE = "单个循环";
+    public static final String LOOPER_QUEUE = "顺序循环";
     public static final String LOOPER_OFF = "单个播放";
-    public static final String LOOPER_RANDOM = "随机播放";
+    public static final String LOOPER_RANDOM = "随机循环";
     public static final String AUDIO_SETTING = "音频设定";
 
     public static final String SUBTRIP_SETTING = "字幕设定";
+    public static final String DECODE_SETTING = "解码设定";
 
     public static final String MENU_SETTING = "菜单";
     private Stack<String> mPathStack = new Stack();
@@ -44,6 +75,7 @@ public class LocalMenuView extends LinearLayout {
     private Context mContext;
     private TextView titleView;
     private ViewFlipper mFlipper;
+    private Control mControl;
 
     private HashMap<String, WeakReference<View>> mViews = new HashMap<String, WeakReference<View>>();
 
@@ -53,6 +85,10 @@ public class LocalMenuView extends LinearLayout {
         setOrientation(LinearLayout.VERTICAL);
         setGravity(Gravity.CENTER_VERTICAL);
         initView();
+    }
+
+    public void setControl(Control control) {
+        mControl = control;
     }
 
     private void initView() {
@@ -79,11 +115,14 @@ public class LocalMenuView extends LinearLayout {
         } else if (AUDIO_SETTING.equals(tag)) {
             view = makeAudioSettingView();
         } else if (SUBTRIP_SETTING.equals(tag)) {
+            view = makeSUBSettingView();
+        } else if (DECODE_SETTING.equals(tag)) {
+            view = makeDecodeSettingView();
+        }
 
-        }
-        if (view != null) {
-            mViews.put(tag, new WeakReference<View>(view));
-        }
+//        if (view != null) {
+//            mViews.put(tag, new WeakReference<View>(view));
+//        }
         return view;
     }
 
@@ -149,6 +188,7 @@ public class LocalMenuView extends LinearLayout {
         layout.addView(makeSelectionItem(LOOPER_SETTING, getResources().getDrawable(R.drawable.icon_looper_setting)));
         layout.addView(makeSelectionItem(AUDIO_SETTING, getResources().getDrawable(R.drawable.icon_audio_setting)));
         layout.addView(makeSelectionItem(SUBTRIP_SETTING, getResources().getDrawable(R.drawable.icon_subtripe_setting)));
+        layout.addView(makeSelectionItem(DECODE_SETTING, getResources().getDrawable(R.drawable.icon_subtripe_setting)));
         return layout;
     }
 
@@ -173,39 +213,129 @@ public class LocalMenuView extends LinearLayout {
 
 
     private View makeLooperSettingView() {
-        RadioGroup layout = new RadioGroup(mContext);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.addView(makeCheckableItemView(LOOPER_ALL, 1), -1, -2);
-        layout.addView(makeCheckableItemView(LOOPER_SINGLE, 2), -1, -2);
-        layout.addView(makeCheckableItemView(LOOPER_RANDOM, 3), -1, -2);
-        layout.addView(makeCheckableItemView(LOOPER_OFF, 4), -1, -2);
-        layout.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                View child = group.findViewById(checkedId);
+        if (mControl != null) {
+            int cycle = mControl.getCycleMode();
+            RadioGroup layout = new RadioGroup(mContext);
+            layout.setOrientation(LinearLayout.VERTICAL);
+            layout.addView(makeCheckableItemView(LOOPER_OFF, IPlayer.NO_CYCLE), -1, -2);
+            layout.addView(makeCheckableItemView(LOOPER_SINGLE, IPlayer.SINGLE_CYCLE), -1, -2);
+            layout.addView(makeCheckableItemView(LOOPER_QUEUE, IPlayer.QUEUE_CYCLE), -1, -2);
+            layout.addView(makeCheckableItemView(LOOPER_ALL, IPlayer.ALL_CYCLE), -1, -2);
+            layout.addView(makeCheckableItemView(LOOPER_RANDOM, IPlayer.RANDOM_CYCLE), -1, -2);
+            layout.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(RadioGroup group, int checkedId) {
+                    View child = group.findViewById(checkedId);
+                    int mod = (Integer) child.getTag();
+                    mControl.setCycleMode(mod);
+                }
+            });
+            for (int i = 0; i < layout.getChildCount(); i++) {
+                View child = layout.getChildAt(i);
                 int mod = (Integer) child.getTag();
-                System.out.println(mod + "");
+                if (mod == cycle) {
+                    layout.check(child.getId());
+                    break;
+                }
             }
-        });
-        return layout;
+            return layout;
+        }
+        return null;
+    }
+
+    private View makeSUBSettingView() {
+        if (mControl != null) {
+            SubTrack[] tracks = mControl.getSubTracks();
+            if(tracks!=null && tracks.length>0){
+                SubTrack track = mControl.getSubTrack();
+                RadioGroup layout = new RadioGroup(mContext);
+                layout.setOrientation(LinearLayout.VERTICAL);
+                layout.addView(makeCheckableItemView("wu", new SubTrack(SubTrack.SubTrackType.NONE)), -1, -2);
+                for(int i=0;i<tracks.length;i++){
+                    SubTrack _track = tracks[i];
+                    layout.addView(makeCheckableItemView(_track.name+"", _track), -1, -2);
+                }
+                layout.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(RadioGroup group, int checkedId) {
+                        View child = group.findViewById(checkedId);
+                        SubTrack _track = (SubTrack) child.getTag();
+                        mControl.setSubTrack(_track);
+                    }
+                });
+                for (int i = 0; i < layout.getChildCount(); i++) {
+                    View child = layout.getChildAt(i);
+                    SubTrack _track = (SubTrack) child.getTag();
+                    if (track.equals(_track)) {
+                        layout.check(child.getId());
+                        break;
+                    }
+                }
+                return layout;
+            }
+        }
+        return null;
+    }
+
+    private View makeDecodeSettingView() {
+        if (mControl != null) {
+            int decode = mControl.getDecodeType();
+            RadioGroup layout = new RadioGroup(mContext);
+            layout.setOrientation(LinearLayout.VERTICAL);
+            layout.addView(makeCheckableItemView("硬解码", IPlayer.HARD_DECODE), -1, -2);
+            layout.addView(makeCheckableItemView("软解码", IPlayer.SOFT_DECODE), -1, -2);
+            layout.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(RadioGroup group, int checkedId) {
+                    View child = group.findViewById(checkedId);
+                    int mod = (Integer) child.getTag();
+                    mControl.setDecodeType(mod);
+                }
+            });
+            for (int i = 0; i < layout.getChildCount(); i++) {
+                View child = layout.getChildAt(i);
+                int mod = (Integer) child.getTag();
+                if (mod == decode) {
+                    layout.check(child.getId());
+                    break;
+                }
+            }
+            return layout;
+        }
+        return null;
     }
 
     private View makeAudioSettingView() {
-        RadioGroup layout = new RadioGroup(mContext);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.addView(makeCheckableItemView(THRD_ITEM_2D, 1), -1, -2);
-        layout.addView(makeCheckableItemView(THRD_ITEM_3DLF, 2), -1, -2);
-        layout.addView(makeCheckableItemView(THRD_ITEM_3DUD, 3), -1, -2);
-        layout.addView(makeCheckableItemView(THRD_ITEM_3D, 4), -1, -2);
-        layout.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                View child = group.findViewById(checkedId);
-                int mod = (Integer) child.getTag();
-                System.out.println(mod + "");
+        if (mControl != null) {
+            AudioTrack[] tracks = mControl.getAudioTracks();
+            if (tracks != null && tracks.length > 0) {
+                int id = mControl.getAudioTrackId();
+                RadioGroup layout = new RadioGroup(mContext);
+                layout.setOrientation(LinearLayout.VERTICAL);
+                for (int i = 0; i < tracks.length; i++) {
+                    AudioTrack track = tracks[i];
+                    layout.addView(makeCheckableItemView(track.language, track), -1, -2);
+                }
+                layout.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(RadioGroup group, int checkedId) {
+                        View child = group.findViewById(checkedId);
+                        AudioTrack track = (AudioTrack) child.getTag();
+                        mControl.setAudioTrack(track);
+                    }
+                });
+                for (int i = 0; i < layout.getChildCount(); i++) {
+                    View child = layout.getChildAt(i);
+                    AudioTrack track = (AudioTrack) child.getTag();
+                    if (id == track.trackId) {
+                        layout.check(child.getId());
+                        break;
+                    }
+                }
+                return layout;
             }
-        });
-        return layout;
+        }
+        return null;
     }
 
     private View makeSelectionItem(final String content, Drawable left) {
