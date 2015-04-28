@@ -84,7 +84,8 @@ public class DeviceScreenActivity extends Activity implements MediaStoreNotifier
             @Override
             public void onClick(View v) {
                 Intent i = new Intent(ctx, FileExplorerScreenActivity.class);
-                i.putExtra(FileExplorerScreenActivity.PARAMS_DEVICE_UUID, deviceInfo.uuid);
+                i.putExtra(FileExplorerScreenActivity.PARAMS_DEVICE_ID, deviceInfo.id);
+                i.putExtra(FileExplorerScreenActivity.PARAMS_DEVICE_PATH, deviceInfo.path);
                 i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 ctx.startActivity(i);
             }
@@ -112,7 +113,8 @@ public class DeviceScreenActivity extends Activity implements MediaStoreNotifier
                 String path = cursor.getString(cursor.getColumnIndex(MediaStore.MediaDevice.FIELD_DEVICE_PATH));
                 String uuid = cursor.getString(cursor.getColumnIndex(MediaStore.MediaDevice.FIELD_DEVICE_UUID));
                 long fsSize = cursor.getLong(cursor.getColumnIndex(MediaStore.MediaDevice.FIELD_FS_SIZE));
-                devicePaths.add(new DeviceInfo(uuid, path, fsSize));
+                long id = cursor.getLong(cursor.getColumnIndex(MediaStore.MediaDevice._ID));
+                devicePaths.add(new DeviceInfo(uuid, path, fsSize, id));
             }
             updateUI();
         }
@@ -123,11 +125,13 @@ public class DeviceScreenActivity extends Activity implements MediaStoreNotifier
         public String path;
         public long fsSize;
         public String uuid;
+        public long id;
 
-        private DeviceInfo(String uuid, String path, long fsSize) {
+        private DeviceInfo(String uuid, String path, long fsSize, long id) {
             this.uuid = uuid;
             this.path = path;
             this.fsSize = fsSize;
+            this.id = id;
         }
     }
 }

@@ -46,6 +46,12 @@ public interface IPlayer {
 
     public boolean isPlaying();
 
+    public boolean isInPlaybackState();
+
+    public boolean isSPIF();
+
+    public void setSPIF(boolean open);
+
     public void changeScale(int scale);
 
     public int getScaleSize();
@@ -56,7 +62,7 @@ public interface IPlayer {
 
     public void setTimeOut(long timeout);
 
-    public void setVideoPath(String path, Map<String, String> headers);
+    public void setVideoPath(Uri uri, Map<String, String> headers);
 
     public void stopPlayback();
 

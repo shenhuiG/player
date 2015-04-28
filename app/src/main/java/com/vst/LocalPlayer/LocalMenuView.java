@@ -26,9 +26,6 @@ import java.util.Stack;
 public class LocalMenuView extends LinearLayout {
 
     public interface Control {
-        //public AudioTrack[] getAudioTracks();
-
-        //public int getAudioTrackId();
 
         public void setCycleMode(int i);
 
@@ -37,6 +34,12 @@ public class LocalMenuView extends LinearLayout {
         public void setDecodeType(int i);
 
         public int getDecodeType();
+
+        public void setAudioOutSPIF(boolean b);
+
+        public boolean isAudioOutSPIF();
+
+        public boolean isSPIFFuctionValid();
 
         public AudioTrack[] getAudioTracks();
 
@@ -68,6 +71,8 @@ public class LocalMenuView extends LinearLayout {
     public static final String SUBTRIP_SETTING = "字幕设定";
     public static final String DECODE_SETTING = "解码设定";
 
+    public static final String AUDIOOUT_SETTING = "音频输出";
+
     public static final String MENU_SETTING = "菜单";
     private Stack<String> mPathStack = new Stack();
 
@@ -96,7 +101,7 @@ public class LocalMenuView extends LinearLayout {
         titleView.setText(MENU_SETTING);
         addView(titleView);
         mFlipper = new ViewFlipper(mContext);
-        addView(mFlipper, new LayoutParams(460, 600));
+        addView(mFlipper, new LayoutParams(460, 700));
     }
 
 
@@ -118,6 +123,8 @@ public class LocalMenuView extends LinearLayout {
             view = makeSUBSettingView();
         } else if (DECODE_SETTING.equals(tag)) {
             view = makeDecodeSettingView();
+        } else if (AUDIOOUT_SETTING.equals(tag)) {
+            view = makeAudioOutSettingView();
         }
 
 //        if (view != null) {
@@ -189,6 +196,7 @@ public class LocalMenuView extends LinearLayout {
         layout.addView(makeSelectionItem(AUDIO_SETTING, getResources().getDrawable(R.drawable.icon_audio_setting)));
         layout.addView(makeSelectionItem(SUBTRIP_SETTING, getResources().getDrawable(R.drawable.icon_subtripe_setting)));
         layout.addView(makeSelectionItem(DECODE_SETTING, getResources().getDrawable(R.drawable.icon_subtripe_setting)));
+        layout.addView(makeSelectionItem(AUDIOOUT_SETTING, getResources().getDrawable(R.drawable.icon_subtripe_setting)));
         return layout;
     }
 
@@ -246,14 +254,14 @@ public class LocalMenuView extends LinearLayout {
     private View makeSUBSettingView() {
         if (mControl != null) {
             SubTrack[] tracks = mControl.getSubTracks();
-            if(tracks!=null && tracks.length>0){
+            if (tracks != null && tracks.length > 0) {
                 SubTrack track = mControl.getSubTrack();
                 RadioGroup layout = new RadioGroup(mContext);
                 layout.setOrientation(LinearLayout.VERTICAL);
                 layout.addView(makeCheckableItemView("wu", new SubTrack(SubTrack.SubTrackType.NONE)), -1, -2);
-                for(int i=0;i<tracks.length;i++){
+                for (int i = 0; i < tracks.length; i++) {
                     SubTrack _track = tracks[i];
-                    layout.addView(makeCheckableItemView(_track.name+"", _track), -1, -2);
+                    layout.addView(makeCheckableItemView(_track.name + "", _track), -1, -2);
                 }
                 layout.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
                     @Override
@@ -276,6 +284,37 @@ public class LocalMenuView extends LinearLayout {
         }
         return null;
     }
+
+    private View makeAudioOutSettingView() {
+        if (mControl != null) {
+            if (mControl.isSPIFFuctionValid()) {
+                boolean spif = mControl.isAudioOutSPIF();
+                RadioGroup layout = new RadioGroup(mContext);
+                layout.setOrientation(LinearLayout.VERTICAL);
+                layout.addView(makeCheckableItemView("开启功放", true), -1, -2);
+                layout.addView(makeCheckableItemView("关闭功放", false), -1, -2);
+                layout.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(RadioGroup group, int checkedId) {
+                        View child = group.findViewById(checkedId);
+                        boolean _spif = (Boolean) child.getTag();
+                        mControl.setAudioOutSPIF(_spif);
+                    }
+                });
+                for (int i = 0; i < layout.getChildCount(); i++) {
+                    View child = layout.getChildAt(i);
+                    boolean _spif = (Boolean) child.getTag();
+                    if (_spif == spif) {
+                        layout.check(child.getId());
+                        break;
+                    }
+                }
+                return layout;
+            }
+        }
+        return null;
+    }
+
 
     private View makeDecodeSettingView() {
         if (mControl != null) {

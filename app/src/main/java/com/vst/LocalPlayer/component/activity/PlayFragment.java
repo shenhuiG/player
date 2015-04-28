@@ -10,9 +10,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.util.Log;
 import android.view.*;
-
 import android.widget.PopupWindow;
 import android.widget.TextView;
 import com.vst.LocalPlayer.LocalMenuView;
@@ -31,7 +29,6 @@ import net.myvst.v2.extra.media.controller.MediaControllerManager;
 import java.io.File;
 import java.io.FileFilter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Random;
 
 public class PlayFragment extends MediaControlFragment implements IPlayer.OnCompletionListener,
@@ -43,7 +40,7 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     private int mSeekWhenPrepared = 0;
     private int mScaleSize = IPlayer.SURFACE_BEST_FIT;
     private int mDecodeType = IPlayer.HARD_DECODE;
-    private String mMediaPath = null;
+    private Uri mMediaUri = null;
     private long mediaId = -1;
     private long deviceId = -1;
     private String devicePath = null;
@@ -98,18 +95,17 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     }
 
     public SubTrack[] getSubTracks() {
-        SubTrack[] localSubs = SubtripApi.getLocalSubTitle(mMediaPath);
+        File file = new File(mMediaUri.getPath());
+        SubTrack[] localSubs = SubtripApi.getLocalSubTitle(file);
         if (localSubs != null && localSubs.length == 0) {
             localSubs = null;
         }
-        Log.e("", "localSubs  >" + localSubs);
         SubTrack[] internalSubs = null;
         if (mPlayer != null) {
             internalSubs = mPlayer.getInternalSubTitle();
             if (internalSubs != null && internalSubs.length == 0) {
                 internalSubs = null;
             }
-            Log.e("", "internalSubs  >" + internalSubs);
         }
         if (localSubs != null && internalSubs == null) {
             return localSubs;
@@ -148,6 +144,23 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
         }
     }
 
+    public void setAudioOutSPIF(boolean b) {
+        if (mPlayer != null) {
+            mPlayer.setSPIF(b);
+        }
+    }
+
+    public boolean isAudioOutSPIF() {
+        if (mPlayer != null) {
+            mPlayer.isSPIF();
+        }
+        return false;
+    }
+
+    public boolean isSPIFFuctionValid() {
+        return mDecodeType == IPlayer.SOFT_DECODE;
+    }
+
     public static PlayFragment newInstance(Bundle args) {
         PlayFragment fragment = new PlayFragment();
         if (args != null) {
@@ -157,17 +170,18 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     }
 
     private boolean init(Bundle args) {
-        String mediaUri;
-        if (args != null && (mediaUri = args.getString("uri")) != null) {
-            if (!mediaUri.equals(mMediaPath)) {
+        if (args != null) {
+            Uri mediaUri = args.getParcelable("uri");
+            if (mediaUri != null && !mediaUri.equals(mMediaUri)) {
                 mediaId = args.getLong("_id", -1);
                 deviceId = args.getLong("deviceId", -1);
                 devicePath = args.getString("devicePath");
                 mSeekWhenPrepared = getPositionFromRecord(mediaId);
                 mPlayer.resetVideo();
-                if (Uri.parse(mediaUri).getScheme().equalsIgnoreCase("file")) {
-                    mHandler.sendMessage(mHandler.obtainMessage(FINAL_PLAY, mediaUri));
-                }
+                String scheme = mediaUri.getScheme();
+                // (scheme.equalsIgnoreCase("file")) {
+                mHandler.sendMessage(mHandler.obtainMessage(FINAL_PLAY, mediaUri));
+                //}
             }
             return true;
         }
@@ -301,14 +315,15 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
             super.handleMessage(msg);
             switch (msg.what) {
                 case FINAL_PLAY:
-                    mMediaPath = (String) msg.obj;
-                    System.out.println(mMediaPath);
+                    Uri uri = (Uri) msg.obj;
+                    System.out.println(uri);
+                    //mMediaPath = "bluray:///storage/external_storage/sdb1/3D-BD/Taken.2.2012.2in1.BluRay.1080p.AVC.DTS-HD.MA5.1-CHDBits";
                     if (mSeekController != null) {
-                        mSeekController.setMediaMeta(queryMediaBase(mediaId, (String) msg.obj));
+                        mSeekController.setMediaMeta(queryMediaBase(mediaId, uri.getPath()));
                     }
-                    if (mPlayer != null && mMediaPath != null) {
+                    if (mPlayer != null && uri != null) {
                         mPlayer.setDecodeType(mDecodeType);
-                        mPlayer.setVideoPath(mMediaPath, null);
+                        mPlayer.setVideoPath(uri, null);
                         mPlayer.start();
                         if (mSeekWhenPrepared > 0) {
                             mPlayer.seekTo(mSeekWhenPrepared);
@@ -363,7 +378,7 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     @Override
     public boolean onError(IPlayer mp, int what, int extra) {
         if (what == IPlayer.VLC_INIT_ERROR) {
-
+            mPlayer.setDecodeType(IPlayer.HARD_DECODE);
         } else {
             handleError("error");
         }
@@ -381,7 +396,7 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
                 break;
             case IPlayer.SINGLE_CYCLE:
                 mPlayer.resetVideo();
-                mHandler.sendMessage(mHandler.obtainMessage(FINAL_PLAY, mMediaPath));
+                mHandler.sendMessage(mHandler.obtainMessage(FINAL_PLAY, mMediaUri));
                 break;
             case IPlayer.ALL_CYCLE:
             case IPlayer.RANDOM_CYCLE:
@@ -411,31 +426,37 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
                     }
                     cycleIndex = (cycleIndex + 1) % size;
                 }
-                System.out.println("mMediaPath=" + mMediaPath + ",mediaId=" + mediaId);
                 MediaBaseModel media = mAllArray.get(cycleIndex);
-                mMediaPath = media.devicePath + media.relativePath;
                 mediaId = media.id;
-                System.out.println("mMediaPath=" + mMediaPath + ",mediaId=" + mediaId);
+                File f = new File(media.devicePath + media.relativePath);
+                Utils.FileCategory category = Utils.getFileCategory(f);
+                if (category == Utils.FileCategory.BDMV) {
+                    mMediaUri = Uri.parse("bluray://" + f.getAbsolutePath());
+                } else {
+                    mMediaUri = Uri.fromFile(f);
+                }
                 mPlayer.resetVideo();
-                mHandler.sendMessage(mHandler.obtainMessage(FINAL_PLAY, mMediaPath));
+                mHandler.sendMessage(mHandler.obtainMessage(FINAL_PLAY, mMediaUri));
                 break;
             case IPlayer.QUEUE_CYCLE:
                 //dir video cycle
-                System.out.println("-----------------------");
-                System.out.println("mMediaPath=" + mMediaPath + ",mediaId=" + mediaId);
-                ArrayList<String> list = getQueueVideoList(new File(mMediaPath.replace("file://", "")).getParentFile());
-                System.out.println(list);
+                File dir = new File(mMediaUri.getPath()).getParentFile();
+                ArrayList<String> list = getQueueVideoList(dir);
                 if (list != null && !list.isEmpty()) {
-                    int index = list.indexOf(mMediaPath);
+                    int index = list.indexOf(mMediaUri.getPath());
                     index = (index + 1) % list.size();
-                    System.out.println("mMediaPath=" + mMediaPath + ",mediaId=" + mediaId);
-                    mMediaPath = list.get(index);
-                    System.out.println("mMediaPath=" + mMediaPath + ",mediaId=" + mediaId);
+                    String path = list.get(index);
+                    f = new File(path);
+                    category = Utils.getFileCategory(f);
+                    if (category == Utils.FileCategory.BDMV) {
+                        mMediaUri = Uri.parse("bluray://" + f.getAbsolutePath());
+                    } else {
+                        mMediaUri = Uri.fromFile(f);
+                    }
                     mediaId = -1;
                     mPlayer.resetVideo();
-                    mHandler.sendMessage(mHandler.obtainMessage(FINAL_PLAY, mMediaPath));
+                    mHandler.sendMessage(mHandler.obtainMessage(FINAL_PLAY, mMediaUri));
                 }
-                System.out.println("-----------------------");
                 break;
 
         }
@@ -487,6 +508,13 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     public boolean isPlaying() {
         if (mPlayer != null) {
             return mPlayer.isPlaying();
+        }
+        return false;
+    }
+
+    public boolean isPause() {
+        if (mPlayer != null) {
+            return mPlayer.isInPlaybackState() && !mPlayer.isPlaying();
         }
         return false;
     }
@@ -565,7 +593,7 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
             if (count <= 1) {
                 if (mPlayer != null) {
                     mPlayer.setDecodeType(mDecodeType);
-                    mPlayer.setVideoPath(uri, null);
+                    mPlayer.setVideoPath(Uri.parse(uri), null);
                     mPlayer.start();
                     if (seek > 0) {
                         mPlayer.seekTo(seek);
@@ -583,9 +611,9 @@ public class PlayFragment extends MediaControlFragment implements IPlayer.OnComp
     private PopupWindow getAndMakeSubTitleWindow() {
         if (mSubTitleWindow == null) {
             TextView tv = new TextView(mContext);
-            tv.setTextColor(Color.YELLOW);
+            tv.setTextColor(Color.WHITE);
             tv.getPaint().setFakeBoldText(true);
-            tv.setTextSize(com.vst.dev.common.util.Utils.getFitSize(mContext, 35));
+            tv.setTextSize(com.vst.dev.common.util.Utils.getFitSize(mContext, 25));
             tv.setShadowLayer(10, 0, 0, Color.BLACK);
             tv.setGravity(Gravity.CENTER);
             mSubTitleWindow = new PopupWindow(tv);

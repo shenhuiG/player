@@ -44,6 +44,8 @@ public class LocalSeekController extends FrameLayout implements IInverseControl 
         public void mediaPause();
 
         public boolean isPlaying();
+
+        public boolean isPause();
     }
 
     private MediaControllerManager mControllerManager;

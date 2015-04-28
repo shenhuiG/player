@@ -91,14 +91,9 @@ public class VideosScreenActivity extends Activity implements MediaStoreNotifier
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 MediaBaseModel info = (MediaBaseModel) parent.getAdapter().getItem(position);
                 String path = info.devicePath + info.relativePath;
-                if (new File(path).exists()) {
-                    File target = Utils.findBDMVMediaFile(new File(path));
-                    System.out.println("target" + target);
-                    if (target != null) {
-                        Utils.playMediaFile(ctx, target, info.id, info.deviceId, info.devicePath);
-                    } else {
-                        Utils.playMediaFile(ctx, new File(path), info.id, info.deviceId, info.devicePath);
-                    }
+                Uri uri = Utils.getMediaUri(path);
+                if (uri != null) {
+                    Utils.playMediaFile(ctx, uri, info.id, info.deviceId, info.devicePath);
                 } else {
                     Toast.makeText(ctx, "该影片不存在 路径：" + "盘:" + info.relativePath, Toast.LENGTH_LONG).show();
                 }

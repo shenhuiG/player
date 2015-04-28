@@ -37,6 +37,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import org.apache.http.Header;
 import org.apache.http.NameValuePair;
+
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -125,24 +126,21 @@ public class Utils {
                 Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC);
     }
 
-    public static String setIdxFormmat(Context ctx, int idx) {
-        String content = null;
-        try {
-            Date t = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).parse(String.valueOf(idx));
-//            content = new SimpleDateFormat(ctx.getResources().getString(R.string.set_fommat_date),
-//                    Locale.getDefault()).format(t);
-        } catch (ParseException e) {
-//            content = ctx.getResources().getString(R.string.set_fommat_int, idx);
-        }
-        return content;
-    }
-
     public static CharSequence makeImageSpannable(CharSequence taget, Drawable d, int start,
-            int drawableWidth, int drawaleHeight, int imageSpanVerticalAlignment) {
+                                                  int drawableWidth, int drawaleHeight, int imageSpanVerticalAlignment) {
         SpannableStringBuilder builder = new SpannableStringBuilder(taget);
         d.setBounds(0, 0, drawableWidth, drawaleHeight);
         ImageSpan imageSpan = new ImageSpan(d, imageSpanVerticalAlignment);
         builder.setSpan(imageSpan, start, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return builder;
+    }
+
+    public static CharSequence makeImageSpannable(CharSequence taget, Drawable d, int start, int end,
+                                                  int drawableWidth, int drawaleHeight, int imageSpanVerticalAlignment) {
+        SpannableStringBuilder builder = new SpannableStringBuilder(taget);
+        d.setBounds(0, 0, drawableWidth, drawaleHeight);
+        ImageSpan imageSpan = new ImageSpan(d, imageSpanVerticalAlignment);
+        builder.setSpan(imageSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         return builder;
     }
 
@@ -410,7 +408,7 @@ public class Utils {
             }
             sp.edit().putInt(WIDTH, width).putInt(HEIGHT, height).commit();
         }
-        return new int[] { width, height };
+        return new int[]{width, height};
     }
 
     public static int getFitSize(Context ctx, int px) {
@@ -732,7 +730,7 @@ public class Utils {
 
     /**
      * 获取app的名字
-     * 
+     *
      * @param ctx
      * @return
      */
@@ -754,7 +752,7 @@ public class Utils {
 
     /**
      * 获取umeng渠道号
-     * 
+     *
      * @return
      */
     public static String getUmengChannel(Context context) {
@@ -778,7 +776,7 @@ public class Utils {
 
     /**
      * 判断是否是手机网络，如果是手机网络则后台不进行网络请求
-     * 
+     *
      * @param ctx
      * @return
      */
@@ -799,7 +797,7 @@ public class Utils {
 
     /**
      * 获取图片文件夹，主要放首页图片，不随文件的增加自动删除
-     * 
+     *
      * @param context
      * @return
      */
@@ -858,7 +856,7 @@ public class Utils {
 
     /**
      * 获取配置文件的文件夹，
-     * 
+     *
      * @param context
      * @return
      */
@@ -872,7 +870,7 @@ public class Utils {
 
     /**
      * 获取图片硬盘缓存文件夹，主要放缓存的图片，随文件的增加自动清理空间
-     * 
+     *
      * @param context
      * @return
      */
@@ -886,7 +884,7 @@ public class Utils {
 
     /**
      * 获取临时文件夹，放临时文件，可以随程序退出清理掉文件
-     * 
+     *
      * @param context
      * @return
      */
@@ -900,7 +898,7 @@ public class Utils {
 
     /**
      * 修改文件权限
-     * 
+     *
      * @param file
      */
     public static void modifyFile(File file) {
@@ -909,7 +907,7 @@ public class Utils {
 
     /**
      * 修改文件权限
-     * 
+     *
      * @param file
      */
     public static void modifyFile(String file) {

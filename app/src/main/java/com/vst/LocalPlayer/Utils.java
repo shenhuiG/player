@@ -58,9 +58,23 @@ public class Utils {
         return result;
     }
 
-    public static void playMediaFile(Context ctx, File mediaFile, long id, long deviceId, String devicePath) {
+
+    public static Uri getMediaUri(String mediaPath) {
+        File f = new File(mediaPath);
+        if (f.exists()) {
+            FileCategory category = getFileCategory(f);
+            if (category == FileCategory.BDMV) {
+                return Uri.parse("bluray://" + f.getAbsolutePath());
+            } else if (category == FileCategory.Video) {
+                return Uri.fromFile(f);
+            }
+        }
+        return null;
+    }
+
+    public static void playMediaFile(Context ctx, Uri uri, long id, long deviceId, String devicePath) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(Uri.parse("file://"+mediaFile.getAbsolutePath()), "video/*");
+        intent.setDataAndType(uri, "video/*");
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.setPackage(ctx.getPackageName());
         intent.setClass(ctx, PlayerActivity.class);
@@ -98,37 +112,6 @@ public class Utils {
     }
 
 
-    public static File findBDMVMediaFile(File bdmv) {
-        if (isBDMV(bdmv)) {
-            File streamDir = new File(bdmv, "BDMV/STREAM");
-            File[] fs = streamDir.listFiles(new FilenameFilter() {
-                @Override
-                public boolean accept(File file, String s) {
-                    return s.endsWith(".m2ts");
-                }
-            });
-            if (fs != null && fs.length > 0) {
-                File target = null;
-                long size = 0;
-                for (int i = 0; i < fs.length; i++) {
-                    File f = fs[i];
-                    if (target == null) {
-                        target = f;
-                        size = f.getTotalSpace();
-                    } else {
-                        long ss = f.getTotalSpace();
-                        if (ss > size) {
-                            size = ss;
-                            target = f;
-                        }
-                    }
-                }
-                return target;
-            }
-        }
-        return null;
-    }
-
     public static FileCategory getFileCategory(File file) {
         if (file.exists()) {
             if (file.isDirectory()) {
@@ -161,6 +144,7 @@ public class Utils {
                     || "vob".equalsIgnoreCase(ext) || "webm".equalsIgnoreCase(ext) || "wmv".equalsIgnoreCase(ext)
                     || "arm".equalsIgnoreCase(ext) || "ra".equalsIgnoreCase(ext) || "ac3".equalsIgnoreCase(ext)
                     || "aac".equalsIgnoreCase(ext) || "wac".equalsIgnoreCase(ext) || "wav".equalsIgnoreCase(ext)
+                    || "m2ts".equalsIgnoreCase(ext)
                     ) {
                 return FileCategory.Video;
             }

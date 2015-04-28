@@ -27,8 +27,7 @@ public class SubtripApi {
     }
 
 
-    public static SubTrack[] getLocalSubTitle(String mediaPath) {
-        File f = new File(mediaPath.replace("file://", ""));
+    public static SubTrack[] getLocalSubTitle(File f) {
         if (f.exists()) {
             File parent = f.getParentFile();
             File[] files = parent.listFiles(new FilenameFilter() {

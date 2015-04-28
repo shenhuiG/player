@@ -7,6 +7,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.text.style.ImageSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -22,6 +23,7 @@ import com.vst.LocalPlayer.MediaStoreNotifier;
 import com.vst.LocalPlayer.R;
 import com.vst.LocalPlayer.Utils;
 import com.vst.LocalPlayer.component.provider.MediaStore;
+import com.vst.LocalPlayer.component.provider.MediaStoreHelper;
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -31,7 +33,8 @@ import java.util.List;
 
 public class FileExplorerScreenActivity extends Activity implements MediaStoreNotifier.CallBack {
 
-    public static final String PARAMS_DEVICE_UUID = "deviceUUid";
+    public static final String PARAMS_DEVICE_ID = "deviceId";
+    public static final String PARAMS_DEVICE_PATH = "devicePATH";
     public static final String TAG = "FileExplorerScreen";
     private Context ctx = null;
     private String mExplorerRootPath = null;
@@ -40,7 +43,7 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
     private TextView rootPathView = null;
     private View emptyView;
     private MediaStoreNotifier notifier;
-    private String deviceUUID = null;
+    private long deviceId = -1;
     private String mDevicePath = null;
     private List<String> childFiles = new ArrayList<String>();
     private FileArrayAdapter mAdapter;
@@ -51,13 +54,14 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
         super.onCreate(savedInstanceState);
         ctx = getApplication();
         setContentView(makeAttachUI());
-        updateUI();
         Intent i = getIntent();
-        deviceUUID = i.getStringExtra(PARAMS_DEVICE_UUID);
-        if (deviceUUID != null) {
+        deviceId = i.getLongExtra(PARAMS_DEVICE_ID, -1);
+        mDevicePath = i.getStringExtra(PARAMS_DEVICE_PATH);
+        if (deviceId >= 0 && mDevicePath != null) {
             notifier = new MediaStoreNotifier(ctx.getContentResolver(), this);
             notifier.registQueryContentUri(MediaStore.MediaDevice.CONTENT_URI, null,
-                    MediaStore.MediaDevice.FIELD_DEVICE_UUID + "=? AND " + MediaStore.MediaDevice.FIELD_VALID + "=?", new String[]{deviceUUID, "1"}, null);
+                    MediaStore.MediaDevice._ID + "=? AND " + MediaStore.MediaDevice.FIELD_VALID + "=?",
+                    new String[]{deviceId + "", "1"}, null);
         }
     }
 
@@ -126,12 +130,9 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
                             deviceId = c.getLong(c.getColumnIndex(MediaStore.MediaBase.FIELD_DEVICE_ID));
                         }
                         c.close();
-                        File target = Utils.findBDMVMediaFile(file);
-                        System.out.println("target" + target);
-                        if (target != null) {
-                            Utils.playMediaFile(ctx, target, mediaId, deviceId, mDevicePath);
-                        } else {
-                            Utils.playMediaFile(ctx, file, mediaId, deviceId, mDevicePath);
+                        Uri uri = Utils.getMediaUri(file.getAbsolutePath());
+                        if (uri != null) {
+                            Utils.playMediaFile(ctx, uri, mediaId, deviceId, mDevicePath);
                         }
                         break;
                     default:
@@ -199,11 +200,13 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
                 String path = cursor.getString(cursor.getColumnIndex(MediaStore.MediaDevice.FIELD_DEVICE_PATH));
                 File file = new File(path);
                 if (file.exists()) {
-                    mDevicePath = path;
                     mDeviceExists = true;
                     updateDate(file, null);
                     updateUI();
                 }
+            } else {
+                mDeviceExists = false;
+                updateUI();
             }
         }
     }
@@ -239,7 +242,7 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            String filePath = getItem(position);
+            String fileName = getItem(position);
             ViewHolder holder;
             if (convertView == null) {
                 LinearLayout layout = new LinearLayout(ctx);
@@ -251,6 +254,9 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
                         com.vst.dev.common.util.Utils.getFitSize(ctx, 40));
                 layout.setGravity(Gravity.CENTER_VERTICAL);
                 ImageView iconView = new ImageView(ctx);
+                layout.addView(iconView);
+                LinearLayout right = new LinearLayout(ctx);
+                right.setOrientation(LinearLayout.VERTICAL);
                 TextView nameView = new TextView(ctx);
                 nameView.setGravity(Gravity.CENTER_VERTICAL);
                 nameView.setTextSize(TypedValue.COMPLEX_UNIT_PX, 25);
@@ -258,8 +264,8 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
                 nameView.setEllipsize(TextUtils.TruncateAt.MARQUEE);
                 nameView.setMarqueeRepeatLimit(Integer.MAX_VALUE);
                 nameView.setPadding(com.vst.dev.common.util.Utils.getFitSize(ctx, 30), 0, 0, 0);
-                layout.addView(iconView);
-                layout.addView(nameView);
+                right.addView(nameView);
+                layout.addView(right);
                 holder = new ViewHolder();
                 holder.fileIconView = iconView;
                 holder.fileNameView = nameView;
@@ -268,9 +274,23 @@ public class FileExplorerScreenActivity extends Activity implements MediaStoreNo
             } else {
                 holder = (ViewHolder) convertView.getTag();
             }
-            File file = new File(mExplorerRootPath, filePath);
-            holder.fileNameView.setText(file.getName());
-
+            File file = new File(mExplorerRootPath, fileName);
+            Utils.FileCategory category = Utils.getFileCategory(file);
+            if (category == Utils.FileCategory.Video || category == Utils.FileCategory.BDMV) {
+                String relativePath = file.getAbsolutePath().replace(mDevicePath, "");
+                boolean b = MediaStoreHelper.mediaIsInStore(getContext().getContentResolver(), deviceId, relativePath);
+                if (!b) {
+                    String t = file.getName() + "  *";
+                    CharSequence s = com.vst.dev.common.util.Utils.makeImageSpannable(t, ctx.getResources().getDrawable(R.drawable.ic_disk_tishi),
+                            t.length() - 1, t.length(), com.vst.dev.common.util.Utils.getFitSize(ctx, 110),
+                            com.vst.dev.common.util.Utils.getFitSize(ctx, 25), ImageSpan.ALIGN_BOTTOM);
+                    holder.fileNameView.setText(s);
+                } else {
+                    holder.fileNameView.setText(file.getName());
+                }
+            } else {
+                holder.fileNameView.setText(file.getName());
+            }
             holder.fileIconView.setImageResource(Utils.getFileCategoryIcon(file));
             return convertView;
         }

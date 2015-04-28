@@ -39,10 +39,6 @@ public class MediaStoreHelper {
         }
     }
 
-    public static void updateMediaDeviceInfo() {
-
-    }
-
 
     public static boolean deviceInStore(ContentResolver cr, String uuid) {
         boolean inStore = false;
@@ -57,6 +53,19 @@ public class MediaStoreHelper {
         return inStore;
     }
 
+
+    public static boolean mediaIsInStore(ContentResolver cr, long deviceId, String relativePath) {
+        boolean isInStore = false;
+        Cursor cursor = cr.query(MediaStore.MediaBase.CONTENT_URI, null, MediaStore.MediaBase.FIELD_DEVICE_ID + "=? and "
+                + MediaStore.MediaBase.FIELD_RELATIVE_PATH + "=?", new String[]{deviceId + "", relativePath}, null);
+        if (cursor != null) {
+            if (cursor.getCount() > 0) {
+                isInStore = true;
+            }
+            cursor.close();
+        }
+        return isInStore;
+    }
 
     public static Uri addNewMediaDevice(ContentResolver cr, String uuid, String path) {
         ContentValues values = new ContentValues();

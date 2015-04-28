@@ -1,6 +1,7 @@
 package com.vst.LocalPlayer.component.activity;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.FragmentActivity;
@@ -69,17 +70,16 @@ public class PlayerActivity extends FragmentActivity {
     }
 
     private void initIntent(Intent i) {
-        String url = i.getDataString();
-        Bundle args = i.getExtras();
-        if (args == null) {
-            args = new Bundle();
+        Uri uri = i.getData();
+        Bundle args = new Bundle();
+        args.putParcelable("uri", uri);
+        if (i.getExtras() != null) {
+            args.putAll(i.getExtras());
         }
-        args.putString("uri", url);
         addNormalControl(args);
     }
 
     private void addNormalControl(Bundle args) {
-        System.out.println("addNormalControl " + args.getLong("_id", -1));
         mMediaControl = (PlayFragment) mFM.findFragmentByTag(NORMAL_TAG);
         if (mMediaControl == null) {
             player.resetVideo();

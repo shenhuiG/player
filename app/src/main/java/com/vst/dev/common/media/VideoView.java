@@ -31,6 +31,8 @@ import com.vst.LocalPlayer.R;
 import com.vst.dev.common.util.Utils;
 import org.videolan.libvlc.*;
 
+import java.io.File;
+import java.io.FilenameFilter;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -99,11 +101,11 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
     }
 
     @Override
-    public void setVideoPath(String path, Map<String, String> header) {
-        if (TextUtils.isEmpty(path)) {
+    public void setVideoPath(Uri uri, Map<String, String> header) {
+        if (uri == null) {
             return;
         }
-        mUri = Uri.parse(path);
+        mUri = uri;
         mHeader = header;
         mSeekWhenPrepared = 0;
         // 解决部分盒子硬解无法播放 modify by 张杰 2014-10-15
@@ -132,6 +134,35 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         }
     }
 
+    private static File findBDMVMediaFile(File bdmv) {
+        File streamDir = new File(bdmv, "BDMV/STREAM");
+        File[] fs = streamDir.listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File file, String s) {
+                return s.endsWith(".m2ts");
+            }
+        });
+        if (fs != null && fs.length > 0) {
+            File target = null;
+            long size = 0;
+            for (int i = 0; i < fs.length; i++) {
+                File f = fs[i];
+                if (target == null) {
+                    target = f;
+                    size = f.length();
+                } else {
+                    long ss = f.length();
+                    if (ss > size) {
+                        size = ss;
+                        target = f;
+                    }
+                }
+            }
+            return target;
+        }
+        return null;
+    }
+
     private void openVideoByMediaPlayer() {
         try {
             mMediaPlayer = new MediaPlayer();
@@ -142,7 +173,14 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
             mMediaPlayer.setOnInfoListener(mInfoListener);
             mMediaPlayer.setOnBufferingUpdateListener(mBufferingUpdateListener);
             mCurrentBufferPercentage = 0;
-            mMediaPlayer.setDataSource(mContext, mUri, mHeader);
+            Uri uri = mUri;
+            if (uri.getScheme().equals("bluray")) {
+                File t = findBDMVMediaFile(new File(uri.getPath()));
+                if (t != null) {
+                    uri = Uri.fromFile(t);
+                }
+            }
+            mMediaPlayer.setDataSource(mContext, uri, mHeader);
             mMediaPlayer.setDisplay(mSurfaceHolder);
             mMediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
             mMediaPlayer.setScreenOnWhilePlaying(true);
@@ -178,6 +216,7 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         }
     }
 
+    @TargetApi(16)
     public AudioTrack[] getAudioTracks() {
         if (mDecodeType == SOFT_DECODE) {
             if (mLibVLC != null) {
@@ -202,14 +241,40 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
                     }
                 }
             }
+        } else {
+            if (mMediaPlayer != null) {
+                MediaPlayer.TrackInfo[] trackInfos = mMediaPlayer.getTrackInfo();
+                if (trackInfos != null && trackInfos.length > 0) {
+                    ArrayList<AudioTrack> list = new ArrayList<AudioTrack>();
+                    for (int i = 0; i < trackInfos.length; i++) {
+                        MediaPlayer.TrackInfo info = trackInfos[i];
+                        Log.e(TAG, "TrackInfo: " + info.getTrackType() + ", "
+                                + info.getLanguage() + "," + info.describeContents());
+                        if (info.getTrackType() == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_AUDIO) {
+                            AudioTrack subTrack = new AudioTrack();
+                            subTrack.trackId = i;
+                            subTrack.language = i + "," + info.getLanguage();
+                            list.add(subTrack);
+                        }
+                    }
+                    if (list.size() > 0) {
+                        return list.toArray(new AudioTrack[0]);
+                    }
+                }
+            }
         }
         return null;
     }
 
+    @TargetApi(16)
     public void setAudioTrack(AudioTrack audioTrack) {
         if (mDecodeType == SOFT_DECODE) {
             if (mLibVLC != null) {
                 mLibVLC.setAudioTrack(audioTrack.trackId);
+            }
+        } else {
+            if (mMediaPlayer != null) {
+                mMediaPlayer.selectTrack(audioTrack.trackId);
             }
         }
     }
@@ -221,6 +286,9 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
                 return mLibVLC.getAudioTrack();
             }
         } else {
+            if (mMediaPlayer != null) {
+                //mMediaPlayer.getAudioSessionId();
+            }
         }
         return -1;
     }
@@ -270,22 +338,23 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         return null;
     }
 
-    /*
-     * private void openVideoByVLCPlayer() { if (mLibVLC == null) { String
-     * pkgName = mContext.getApplicationInfo().packageName; if
-     * (!LibVLC.haveNewSoftDecoderVersion(pkgName)) { try { mLibVLC =
-     * LibVLC.getInstance(); mLibVLC.init(mContext); } catch (LibVlcException e)
-     * { if (mOnErrorListener != null) { mOnErrorListener.onError(this,
-     * VLC_INIT_ERROR, 0); } return; } } else { if (mOnErrorListener != null) {
-     * mOnErrorListener.onError(this, VLC_INIT_ERROR, 0); } return; } }
-     * mCurrentBufferPercentage = 0;
-     * mLibVLC.attachSurface(mSurfaceHolder.getSurface(), this);
-     * mSurfaceHolder.setKeepScreenOn(true);
-     * EventHandler.getInstance().addHandler(mVlcHandler);
-     * setKeepScreenOn(true); mLibVLC.getMediaList().add(new Media(mLibVLC,
-     * mUri.toString()), null); mLibVLC.playIndex(mLibVLC.getMediaList().size()
-     * - 1); }
-     */
+    boolean openSPIF = false;
+
+    public void setSPIF(boolean open) {
+        if (mDecodeType == SOFT_DECODE) {
+            if (mLibVLC != null) {
+                mLibVLC.setSPDIF(open);
+                openSPIF = open;
+            }
+        } else {
+            openSPIF = false;
+        }
+    }
+
+    public boolean isSPIF() {
+        return openSPIF;
+    }
+
     private MediaPlayer.OnCompletionListener mCompletionListener = new MediaPlayer.OnCompletionListener() {
         public void onCompletion(MediaPlayer mp) {
             if (mOnCompletionListener != null) {
@@ -549,7 +618,7 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
         return 0;
     }
 
-    private boolean isInPlaybackState() {
+    public boolean isInPlaybackState() {
         boolean inPlayState = mCurrentState != STATE_ERROR && mCurrentState != STATE_IDLE
                 && mCurrentState != STATE_PREPARING;
         switch (mDecodeType) {
@@ -611,6 +680,7 @@ public class VideoView extends SurfaceView implements IPlayer, IVideoPlayer {
     @Override
     public void setDecodeType(int decodeType) {
         if (mDecodeType != decodeType) {
+            openSPIF = false;
             if (mUri != null) {
                 mSeekWhenPrepared = (int) getPosition();
             }
